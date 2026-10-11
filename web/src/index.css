@@ -1,0 +1,208 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --color-brand-300: #7ddcff;
+  --color-brand-400: #54c8ff;
+  --color-brand-500: #27a9ff;
+  --color-brand-600: #1689ff;
+
+  --color-game-bg: #10001f;
+  --color-ink: #ffffff;
+  --color-ink-soft: #f6eaff;
+
+  --shadow-card: 0 8px 24px -4px rgba(0, 0, 0, 0.34), 0 0 0 1px rgba(244, 20, 104, 0.12);
+  --shadow-btn-gold: 0 8px 24px rgba(20, 145, 255, 0.28);
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: #050008;
+  color: #ffffff;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Keep the game interface centred like the reference's framed app view. */
+#root {
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+.player-app {
+  --player-surface: #160522;
+  --player-surface-raised: #210b31;
+  --player-border: rgba(244, 20, 104, 0.42);
+  min-height: 100vh;
+  background: #10001f;
+  color: #fff;
+}
+
+.player-app [class~="bg-white"] {
+  background-color: var(--player-surface) !important;
+}
+
+.player-app [class~="bg-white/95"] {
+  background-color: rgb(22 5 34 / 95%) !important;
+}
+
+.player-app [class~="bg-white/60"],
+.player-app [class~="bg-gray-50"],
+.player-app [class~="bg-gray-100"],
+.player-app [class~="bg-slate-50"],
+.player-app [class~="bg-[#eef3ff]"] {
+  background-color: var(--player-surface-raised) !important;
+}
+
+.player-app [class*="border-[#FAD655]"] {
+  border-color: #f41468 !important;
+}
+
+.player-app [class*="bg-[#FEF4BA]"],
+.player-app [class*="bg-[#FFFDF5]"] {
+  background-color: #210b31 !important;
+}
+
+.player-app [class~="border-gray-100"],
+.player-app [class~="border-gray-200"],
+.player-app [class~="border-gray-300"],
+.player-app [class~="border-slate-100"],
+.player-app [class~="border-slate-200"] {
+  border-color: var(--player-border) !important;
+}
+
+.player-app [class~="text-slate-900"],
+.player-app [class~="text-slate-800"],
+.player-app [class~="text-slate-700"],
+.player-app [class~="text-slate-600"],
+.player-app [class~="text-gray-900"],
+.player-app [class~="text-gray-800"],
+.player-app [class~="text-gray-700"] {
+  color: #fff !important;
+}
+
+.player-app [class~="text-slate-500"],
+.player-app [class~="text-slate-400"],
+.player-app [class~="text-gray-600"],
+.player-app [class~="text-gray-500"],
+.player-app [class~="text-gray-400"] {
+  color: #cdb9da !important;
+}
+
+.player-app input,
+.player-app select,
+.player-app textarea {
+  color-scheme: dark;
+}
+
+.player-app [class~="bg-brand-500"] {
+  color: #fff !important;
+}
+
+.player-app [class~="text-brand-600"] {
+  color: #5bcaff !important;
+}
+
+.menu-toggle-button {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(#160522, #160522) padding-box,
+    linear-gradient(135deg, #f41468, #55baff, #a82978) border-box;
+  box-shadow: 0 0 14px rgba(85, 186, 255, 0.18), 0 0 14px rgba(244, 20, 104, 0.12);
+}
+
+.menu-toggle-button:hover {
+  box-shadow: 0 0 18px rgba(85, 186, 255, 0.3), 0 0 18px rgba(244, 20, 104, 0.2);
+}
+
+.game-thumb-container {
+  background: radial-gradient(circle at center top, #35104c 0%, #10001f 75%);
+  position: relative;
+  overflow: hidden;
+}
+.game-thumb-container::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(1px 1px at 20px 30px, #ffffff, rgba(0, 0, 0, 0)),
+    radial-gradient(1.5px 1.5px at 60px 80px, #ff4eaa, rgba(0, 0, 0, 0)),
+    radial-gradient(1px 1px at 120px 40px, #ffffff, rgba(0, 0, 0, 0)),
+    radial-gradient(1.5px 1.5px at 180px 110px, #55c9ff, rgba(0, 0, 0, 0)),
+    radial-gradient(1px 1px at 250px 25px, #ffffff, rgba(0, 0, 0, 0)),
+    radial-gradient(1.5px 1.5px at 300px 90px, #ff4eaa, rgba(0, 0, 0, 0)),
+    radial-gradient(1px 1px at 340px 45px, #ffffff, rgba(0, 0, 0, 0));
+  background-repeat: repeat;
+  background-size: 350px 200px;
+  opacity: 0.65;
+  pointer-events: none;
+}
+
+/* keep the starfield behind the artwork, never above it */
+.game-thumb-container > * {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes lp-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-rise {
+  animation: lp-rise 0.22s ease-out both;
+}
+
+.tournament-heading-line {
+  position: relative;
+  flex: 1;
+  height: 2px;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: rgba(244, 20, 104, 0.24);
+}
+
+.tournament-heading-line > span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 42%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #f41468, #55baff);
+  animation: tournament-line-sweep 2.4s ease-in-out infinite;
+}
+
+.tournament-heading-line:last-child > span {
+  animation-direction: reverse;
+}
+
+@keyframes tournament-line-sweep {
+  from {
+    transform: translateX(-110%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tournament-heading-line > span {
+    animation: none;
+    left: 29%;
+  }
+}

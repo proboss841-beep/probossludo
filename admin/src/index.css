@@ -1,0 +1,125 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+  --admin-canvas: #08000f;
+  --admin-surface: #160522;
+  --admin-raised: #210b31;
+  --admin-border: rgba(244, 20, 104, 0.42);
+  --admin-ink: #ffffff;
+  --admin-muted: #cdb9da;
+  --admin-accent: #27a9ff;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--admin-canvas);
+  color: var(--admin-ink);
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.admin-app {
+  min-height: 100vh;
+  background: var(--admin-canvas);
+  color: var(--admin-ink);
+}
+
+.admin-app [class~="bg-white"],
+.admin-app [class~="bg-white/95"] {
+  background-color: var(--admin-surface) !important;
+}
+
+.admin-app [class~="bg-[#fbe6ef]"],
+.admin-app [class~="bg-[#fdf1f7]"],
+.admin-app [class~="bg-[#fce4ee]"],
+.admin-app [class~="bg-[#fce4ee]/80"] {
+  background-color: var(--admin-raised) !important;
+}
+
+.admin-app [class~="border-[#f0c2d8]"],
+.admin-app [class~="border-[#fbe3ee]"],
+.admin-app [class~="border-[#f3cfe0]"] {
+  border-color: var(--admin-border) !important;
+}
+
+.admin-app [class~="text-[#2a1520]"],
+.admin-app [class~="text-[#3d1f2e]"],
+.admin-app [class~="text-gray-900"],
+.admin-app [class~="text-slate-900"],
+.admin-app [class~="text-slate-800"] {
+  color: var(--admin-ink) !important;
+}
+
+.admin-app [class~="text-[#7a3d58]"],
+.admin-app [class~="text-[#a56a83]"],
+.admin-app [class~="text-slate-600"],
+.admin-app [class~="text-slate-500"],
+.admin-app [class~="text-gray-600"],
+.admin-app [class~="text-gray-500"] {
+  color: var(--admin-muted) !important;
+}
+
+.admin-app input,
+.admin-app select,
+.admin-app textarea {
+  color-scheme: dark;
+}
+
+.admin-app [class~="bg-gradient-to-br"][class*="from-[#ec4899]"] {
+  background-image: linear-gradient(to bottom right, #58ceff, #1689ff) !important;
+}
+
+.admin-app [class*="focus:border-[#db2777]"]:focus {
+  border-color: var(--admin-accent) !important;
+}
+
+body > #root {
+  min-height: 100vh;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: #6d245e;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #a82978;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@keyframes pulse-dot {
+  0% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.5); }
+  70% { box-shadow: 0 0 0 6px rgba(22, 163, 74, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0); }
+}
+.pulse-dot {
+  animation: pulse-dot 1.6s infinite;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.fade-in {
+  animation: fade-in 0.2s ease;
+}
