@@ -18,7 +18,13 @@ import Redeem from "./pages/Redeem.jsx";
 import AppDownload from "./pages/AppDownload.jsx";
 import { Spinner } from "./components/ui.jsx";
 import { NavIcon } from "./components/art.jsx";
-import { formatPaise } from "../../../utils/formatPaise.js";
+
+/**
+ * Local implementation of formatPaise to fix build resolution issues.
+ */
+const formatPaise = (amount) => {
+  return Number(amount || 0).toLocaleString("en-IN");
+};
 
 /**
  * App shell uses a centred, reference-style device frame
