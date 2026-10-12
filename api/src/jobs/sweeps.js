@@ -24,20 +24,20 @@ let worker;
 
 export async function startSweeps() {
   queue = new Queue(QUEUE_NAME, { connection });
-  await queue.add(
+  await queue.upsertJobScheduler(
     "expire-open",
-    {},
-    { repeat: { every: 30_000 }, jobId: "expire-open", removeOnComplete: { count: 50 } }
+    { every: 30_000 },
+    { name: "expire-open", data: {}, opts: { removeOnComplete: { count: 50 } } }
   );
-  await queue.add(
+  await queue.upsertJobScheduler(
     "sla-conflicts",
-    {},
-    { repeat: { every: 60_000 }, jobId: "sla-conflicts", removeOnComplete: { count: 50 } }
+    { every: 60_000 },
+    { name: "sla-conflicts", data: {}, opts: { removeOnComplete: { count: 50 } } }
   );
-  await queue.add(
+  await queue.upsertJobScheduler(
     "deposit-gateway",
-    {},
-    { repeat: { every: 60_000 }, jobId: "deposit-gateway", removeOnComplete: { count: 50 } }
+    { every: 60_000 },
+    { name: "deposit-gateway", data: {}, opts: { removeOnComplete: { count: 50 } } }
   );
 
   worker = new Worker(
