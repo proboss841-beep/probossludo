@@ -80,4 +80,9 @@ export const isProd = env.NODE_ENV === "production";
 export const isTest = env.NODE_ENV === "test";
 export const isDev = env.NODE_ENV === "development";
 
-export const corsOrigins = env.CORS_ORIGINS.split(",").map((s) => s.trim()).filter(Boolean);
+export const corsOrigins = [
+  ...new Set([
+    ...env.CORS_ORIGINS.split(",").map((s) => s.trim()).filter(Boolean),
+    "https://probossludo.com",
+  ]),
+];
