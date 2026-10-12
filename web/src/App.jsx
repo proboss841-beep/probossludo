@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Routes, Route, Navigate, Link, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { formatPaise } from "../../../packages/shared/src/index.js";
 import { subscribe, tryResume, authState } from "./lib/auth.js";
 import { api } from "./lib/api.js";
 import Home from "./pages/Home.jsx";
@@ -19,6 +18,13 @@ import Redeem from "./pages/Redeem.jsx";
 import AppDownload from "./pages/AppDownload.jsx";
 import { Spinner } from "./components/ui.jsx";
 import { NavIcon } from "./components/art.jsx";
+
+/**
+ * Local implementation of formatPaise to avoid monorepo path resolution issues.
+ */
+const formatPaise = (amount) => {
+  return Number(amount || 0).toLocaleString("en-IN");
+};
 
 /**
  * App shell uses a centred, reference-style device frame
@@ -56,7 +62,7 @@ function AppHeader({ onOpenMenu }) {
   const available = wallet?.availablePaise;
 
   return (
-    <section     className="flex items-center gap-2.5 border-b border-[#f41468]/30 px-4 py-2.5" data-purpose="app-header">
+    <section className="flex items-center gap-2.5 border-b border-[#f41468]/30 px-4 py-2.5" data-purpose="app-header">
       <button
         type="button"
         onClick={onOpenMenu}
