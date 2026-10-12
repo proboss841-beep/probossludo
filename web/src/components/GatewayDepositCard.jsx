@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api.js";
-import { formatPaise } from "../../../../packages/shared/src/index.js";
+import { formatPaise } from "../../../../utils/formatPaise.js";
 import { useToast } from "./Toast.jsx";
 import { Button, Spinner } from "./ui.jsx";
 

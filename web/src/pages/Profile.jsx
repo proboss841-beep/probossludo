@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api.js";
 import { socket } from "../lib/socket.js";
-import { formatPaise } from "../../../../packages/shared/src/index.js";
+import { formatPaise } from "../../../../utils/formatPaise.js";
 import { useToast } from "../components/Toast.jsx";
 import { Badge, Button, Empty, Panel, Skeleton } from "../components/ui.jsx";
 import { NavIcon } from "../components/art.jsx";

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api.js";
-import { formatPaise } from "../../../../packages/shared/src/index.js";
+import { formatPaise } from "../../../../utils/formatPaise.js";
 import { Empty, Skeleton, Tabs, TabsButton, TabsList, TabsPanel } from "../components/ui.jsx";
 
 /**

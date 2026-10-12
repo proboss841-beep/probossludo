@@ -2,7 +2,7 @@ import React from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api.js";
-import { formatPaise } from "../../../../packages/shared/src/index.js";
+import { formatPaise } from "../../../../utils/formatPaise.js";
 import { Button, Card, LiveTag, Money, PageHeading, Panel, Skeleton, StatCard, Table } from "../components/ui.jsx";
 
 /**

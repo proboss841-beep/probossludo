@@ -1,4 +1,4 @@
-import { formatPaise } from "../../../../packages/shared/src/index.js";
+import { formatPaise } from "../../../../utils/formatPaise.js";
 
 /**
  * Shared admin primitives — light rose theme matching the reference admin panel
