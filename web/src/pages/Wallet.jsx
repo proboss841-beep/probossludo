@@ -3,11 +3,27 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { api } from "../lib/api.js";
 import { socket } from "../lib/socket.js";
-import { rupeesToPaise } from "../../../../packages/shared/src/index.js";
-import { formatPaise } from "../../../../utils/formatPaise.js";
 import { useToast } from "../components/Toast.jsx";
 import { Badge, Button, Empty, Input, Panel, Skeleton, Spinner, Tabs, TabsButton, TabsList, TabsPanel } from "../components/ui.jsx";
 import GatewayDepositCard from "../components/GatewayDepositCard.jsx";
+
+/**
+ * Local implementation of exact-math currency utilities to avoid monorepo path issues.
+ */
+function rupeesToPaise(rupeesInput) {
+  const num = Number(rupeesInput);
+  if (isNaN(num) || num < 0) throw new Error("Invalid amount");
+  return Math.round(num * 100);
+}
+
+function formatPaise(paise, options = {}) {
+  const amount = Number(paise || 0) / 100;
+  const formatted = amount.toLocaleString("en-IN", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
+  return options.withSymbol === false ? formatted : `₹${formatted}`;
+}
 
 /**
  * Wallet — balances, deposits, withdrawals and the ledger, all in the shared
@@ -409,4 +425,3 @@ export default function Wallet() {
     </div>
   );
 }
-
