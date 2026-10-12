@@ -18,13 +18,7 @@ import Redeem from "./pages/Redeem.jsx";
 import AppDownload from "./pages/AppDownload.jsx";
 import { Spinner } from "./components/ui.jsx";
 import { NavIcon } from "./components/art.jsx";
-
-/**
- * Local implementation of formatPaise to avoid monorepo path resolution issues.
- */
-const formatPaise = (amount) => {
-  return Number(amount || 0).toLocaleString("en-IN");
-};
+import { formatPaise } from "../../../packages/shared/src/index.js";
 
 /**
  * App shell uses a centred, reference-style device frame
