@@ -1,9 +1,15 @@
 import React, { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { sendOtp, verifyOtp } from "../lib/auth.js";
-import { phoneSchema } from "@shared/schemas";
+import { z } from "zod";
 import { useToast } from "../components/Toast.jsx";
 import { Button, Card } from "../components/ui.jsx";
+
+const phoneSchema = z
+  .string()
+  .trim()
+  .transform((value) => value.replace(/[\s-]/g, "").replace(/^\+?91(?=\d{10}$)/, ""))
+  .pipe(z.string().regex(/^[6-9]\d{9}$/, "Enter a valid 10-digit Indian mobile number"));
 
 export default function Login() {
   const toast = useToast();

@@ -3,8 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api.js";
 import { socket } from "../lib/socket.js";
-import { computePrize, rupeesToPaise } from "../../../../packages/shared/src/index.js";
-import { formatPaise } from "../../../../utils/formatPaise.js";
+import { computePrize, formatPaise, rupeesToPaise } from "../lib/money.js";
 import { useToast } from "../components/Toast.jsx";
 import { Button, Empty, SectionTitle, Skeleton } from "../components/ui.jsx";
 

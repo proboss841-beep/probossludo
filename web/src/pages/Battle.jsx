@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, apiUpload } from "../lib/api.js";
 import compressImage from "../lib/compressImage.js";
 import { socket } from "../lib/socket.js";
-import { formatPaise } from "../../../../utils/formatPaise.js";
+import { formatPaise } from "../lib/money.js";
 import { useToast } from "../components/Toast.jsx";
 import { Button, Empty, Input, Panel, Skeleton, StatusBadge } from "../components/ui.jsx";
 

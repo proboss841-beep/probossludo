@@ -2,7 +2,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api.js";
-import { formatPaise } from "../../../../utils/formatPaise.js";
+import { formatPaise } from "../lib/money.js";
 import { Empty, Panel, Skeleton } from "../components/ui.jsx";
 
 /**

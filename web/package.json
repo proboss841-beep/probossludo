@@ -9,12 +9,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@shared/schemas": "file:../../packages/shared",
     "@tanstack/react-query": "^5.62.11",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.28.1",
-    "socket.io-client": "^4.8.1"
+    "socket.io-client": "^4.8.1",
+    "zod": "^3.24.1"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.0.0",

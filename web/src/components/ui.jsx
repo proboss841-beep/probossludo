@@ -1,5 +1,5 @@
 import React from "react";
-import { formatPaise } from "../../../../utils/formatPaise.js";
+import { formatPaise } from "../lib/money.js";
 
 /**
  * Shared UI kit — one light/gold theme everywhere, matching the reference
