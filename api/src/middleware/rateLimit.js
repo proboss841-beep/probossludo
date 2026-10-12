@@ -1,4 +1,4 @@
-import { TooManyRequestsError } from "@lpludo/shared";
+import { TooManyRequestsError } from "../../../../packages/shared/src/index.js";
 import { log } from "../config/logger.js";
 import { redis } from "../db/redis.js";
 

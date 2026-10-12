@@ -1,5 +1,5 @@
 import { verifyAccessToken } from "../services/auth.service.js";
-import { UnauthorizedError, ForbiddenError } from "@lpludo/shared";
+import { UnauthorizedError, ForbiddenError } from "../../../../packages/shared/src/index.js";
 import { User } from "../db/models/user.model.js";
 import { env } from "../config/env.js";
 

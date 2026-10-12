@@ -1,4 +1,4 @@
-import { BadRequestError, ConflictError, NotFoundError, formatPaise } from "@lpludo/shared";
+import { BadRequestError, ConflictError, NotFoundError, formatPaise } from "../../../../packages/shared/src/index.js";
 import { env } from "../config/env.js";
 import { log } from "../config/logger.js";
 import { DepositRequest } from "../db/models/depositRequest.model.js";

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Routes, Route, Navigate, Link, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { formatPaise } from "@lpludo/shared";
+import { formatPaise } from "../../../packages/shared/src/index.js";
 import { subscribe, tryResume, authState } from "./lib/auth.js";
 import { api } from "./lib/api.js";
 import Home from "./pages/Home.jsx";

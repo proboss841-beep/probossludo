@@ -2,9 +2,9 @@ import * as contestService from "../services/contest.service.js";
 import { walletView } from "../services/wallet.service.js";
 import { Contest, CONTEST_STATES } from "../db/models/contest.model.js";
 import { User } from "../db/models/user.model.js";
-import { createContestSchema, submitRoomSchema, submitResultSchema } from "@lpludo/shared/schemas";
-import { NotFoundError, ForbiddenError, ConflictError, BadRequestError, computePrize } from "@lpludo/shared";
-import { validate } from "@lpludo/shared/schemas";
+import { createContestSchema, submitRoomSchema, submitResultSchema } from "../../../../packages/shared/src/schemas/index.js";
+import { NotFoundError, ForbiddenError, ConflictError, BadRequestError, computePrize } from "../../../../packages/shared/src/index.js";
+import { validate } from "../../../../packages/shared/src/schemas/index.js";
 import { emitContestUpdate, emitWalletUpdate } from "../realtime/io.js";
 import { log } from "../config/logger.js";
 

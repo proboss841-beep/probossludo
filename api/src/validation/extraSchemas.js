@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { objectIdSchema, phoneSchema } from "@lpludo/shared/schemas";
+import { objectIdSchema, phoneSchema } from "../../../../packages/shared/src/schemas/index.js";
 
 /** admin / agent account management (superadmin only) */
 export const adminAccountCreateSchema = z.object({
@@ -98,4 +98,4 @@ export const adminSettingsSchema = z.object({
     .optional(),
 });
 
-export { validate } from "@lpludo/shared/schemas";
+export { validate } from "../../../../packages/shared/src/schemas/index.js";

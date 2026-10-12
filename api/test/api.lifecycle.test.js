@@ -1,10 +1,20 @@
 // env MUST be set before the app modules are imported (config/env.js parses on import)
+import dotenv from "dotenv";
+
+dotenv.config({ path: new URL("../.env", import.meta.url) });
+
+const testMongoUri = new URL(process.env.MONGO_URI || "mongodb://localhost:27018/lpludo_dev");
+testMongoUri.pathname = "/lpludo_test_lifecycle";
+const testRedisUrl = new URL(process.env.REDIS_URL || "redis://localhost:6379");
+testRedisUrl.pathname = "/14";
+
 process.env.NODE_ENV = "test";
-process.env.MONGO_URI = "mongodb://localhost:27018/lpludo_test?replicaSet=rs0";
-process.env.REDIS_URL = "redis://localhost:6379";
+process.env.MONGO_URI = testMongoUri.toString();
+process.env.REDIS_URL = testRedisUrl.toString();
 process.env.JWT_ACCESS_SECRET = "test-access-secret-0123456789abcdef0123456789abcdef";
 process.env.JWT_REFRESH_SECRET = "test-refresh-secret-0123456789abcdef0123456789abc";
 process.env.ALLOW_DEV_OTP = "true";
+process.env.MERAOTP_API_KEY = "";
 process.env.ADMIN_PHONE = "9999000000";
 process.env.ADMIN_EMAIL = "admin@lpludo.test";
 process.env.ADMIN_PASSWORD = "Admin@12345";

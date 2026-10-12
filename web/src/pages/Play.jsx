@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api.js";
 import { socket } from "../lib/socket.js";
-import { formatPaise, computePrize, rupeesToPaise } from "@lpludo/shared";
+import { formatPaise, computePrize, rupeesToPaise } from "../../../../packages/shared/src/index.js";
 import { useToast } from "../components/Toast.jsx";
 import { Button, Empty, SectionTitle, Skeleton } from "../components/ui.jsx";
 

@@ -6,7 +6,7 @@ import { requireAuth } from "../middleware/auth.js";
 import { apiLimiter } from "../middleware/rateLimit.js";
 import { uploadFile, readUpload } from "../controllers/upload.controller.js";
 import { env } from "../config/env.js";
-import { BadRequestError } from "@lpludo/shared";
+import { BadRequestError } from "../../../../packages/shared/src/index.js";
 
 const ALLOWED_MIME = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MAX_BYTES = 8 * 1024 * 1024; // 8 MB

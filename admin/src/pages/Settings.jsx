@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api.js";
-import { rupeesToPaise, formatPaise } from "@lpludo/shared";
+import { rupeesToPaise, formatPaise } from "../../../../packages/shared/src/index.js";
 import { useToast } from "../components/Toast.jsx";
 import { Badge, Button, Card, Input, Money, PageHeading, Panel, Skeleton, Table } from "../components/ui.jsx";
 import { authState } from "../lib/auth.js";

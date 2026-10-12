@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api.js";
-import { formatPaise, rupeesToPaise } from "@lpludo/shared";
+import { formatPaise, rupeesToPaise } from "../../../../packages/shared/src/index.js";
 import { useToast } from "../components/Toast.jsx";
 import { Button, Input, Panel, Skeleton } from "../components/ui.jsx";
 

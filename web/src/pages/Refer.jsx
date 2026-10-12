@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api.js";
-import { formatPaise } from "@lpludo/shared";
+import { formatPaise } from "../../../../packages/shared/src/index.js";
 import { useToast } from "../components/Toast.jsx";
 import { Button, Panel, Skeleton } from "../components/ui.jsx";
 

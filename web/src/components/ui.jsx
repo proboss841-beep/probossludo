@@ -1,5 +1,5 @@
 import React from "react";
-import { formatPaise } from "@lpludo/shared";
+import { formatPaise } from "../../../../packages/shared/src/index.js";
 
 /**
  * Shared UI kit — one light/gold theme everywhere, matching the reference

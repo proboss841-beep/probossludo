@@ -3,8 +3,8 @@ import { asyncH } from "../middleware/errors.js";
 import { requireAuth } from "../middleware/auth.js";
 import { apiLimiter } from "../middleware/rateLimit.js";
 import * as contestController from "../controllers/contest.controller.js";
-import { validate } from "@lpludo/shared/schemas";
-import { paginationSchema } from "@lpludo/shared/schemas";
+import { validate } from "../../../../packages/shared/src/schemas/index.js";
+import { paginationSchema } from "../../../../packages/shared/src/schemas/index.js";
 
 const router = Router();
 

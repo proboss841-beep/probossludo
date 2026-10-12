@@ -5,7 +5,7 @@ import { Wallet } from "../db/models/wallet.model.js";
 import { withTransaction } from "../db/connect.js";
 import { env } from "../config/env.js";
 import { log } from "../config/logger.js";
-import { UnauthorizedError, NotFoundError, ForbiddenError } from "@lpludo/shared";
+import { UnauthorizedError, NotFoundError, ForbiddenError } from "../../../../packages/shared/src/index.js";
 
 const l = log("auth");
 

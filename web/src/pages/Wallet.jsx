@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { api } from "../lib/api.js";
 import { socket } from "../lib/socket.js";
-import { rupeesToPaise, formatPaise } from "@lpludo/shared";
+import { rupeesToPaise, formatPaise } from "../../../../packages/shared/src/index.js";
 import { useToast } from "../components/Toast.jsx";
 import { Badge, Button, Empty, Input, Panel, Skeleton, Spinner, Tabs, TabsButton, TabsList, TabsPanel } from "../components/ui.jsx";
 import GatewayDepositCard from "../components/GatewayDepositCard.jsx";

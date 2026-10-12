@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { env } from "../config/env.js";
-import { BadRequestError, NotFoundError, ForbiddenError } from "@lpludo/shared";
+import { BadRequestError, NotFoundError, ForbiddenError } from "../../../../packages/shared/src/index.js";
 import { log } from "../config/logger.js";
 
 const l = log("upload");

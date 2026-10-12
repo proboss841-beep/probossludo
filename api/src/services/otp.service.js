@@ -1,7 +1,7 @@
 import { randomBytes, randomInt } from "crypto";
 import { env, isTest } from "../config/env.js";
 import { log } from "../config/logger.js";
-import { AppError, BadRequestError, TooManyRequestsError } from "@lpludo/shared";
+import { AppError, BadRequestError, TooManyRequestsError } from "../../../../packages/shared/src/index.js";
 
 const l = log("otp");
 

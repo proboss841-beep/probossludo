@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { sendOtp, verifyOtp } from "../lib/auth.js";
-import { phoneSchema } from "@lpludo/shared/schemas";
+import { phoneSchema } from "../../../../packages/shared/src/schemas/index.js";
 import { useToast } from "../components/Toast.jsx";
 import { Button, Card } from "../components/ui.jsx";
 

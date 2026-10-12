@@ -1,4 +1,4 @@
-import { formatPaise } from "@lpludo/shared";
+import { formatPaise } from "../../../../packages/shared/src/index.js";
 
 /**
  * Shared admin primitives — light rose theme matching the reference admin panel
