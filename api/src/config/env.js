@@ -84,5 +84,6 @@ export const corsOrigins = [
   ...new Set([
     ...env.CORS_ORIGINS.split(",").map((s) => s.trim()).filter(Boolean),
     "https://probossludo.com",
+    "https://www.probossludo.com",
   ]),
 ];
