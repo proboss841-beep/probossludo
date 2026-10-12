@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { sendOtp, verifyOtp } from "../lib/auth.js";
-import { phoneSchema } from "../../../../packages/shared/src/schemas/index.js";
+import { phoneSchema } from "@shared/schemas";
 import { useToast } from "../components/Toast.jsx";
 import { Button, Card } from "../components/ui.jsx";
 
