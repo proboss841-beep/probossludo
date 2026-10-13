@@ -3,6 +3,7 @@ import { withTransaction } from "../db/connect.js";
 import { applyLedger } from "./ledger.service.js";
 import { withLock } from "../db/redis.js";
 import { Wallet } from "../db/models/wallet.model.js";
+import { LedgerEntry } from "../db/models/ledgerEntry.model.js";
 import { ForbiddenError } from "../../../../packages/shared/src/index.js";
 
 /**
@@ -63,7 +64,17 @@ export async function creditDeposit({ userId, depositRequestId, amountPaise, act
 /** Hold a battle stake when a player is actually seated. 409 if short of money. */
 export async function holdEntryFee({ userId, contestId, amountPaise, session }) {
   const run = async (s) => {
-    await getOrCreateWallet(userId, { session: s });
+    const currentWallet = await getOrCreateWallet(userId, { session: s });
+    const existingHold = await LedgerEntry.findOne({
+      userId,
+      refType: "contest",
+      refId: contestId,
+      idempotencyKey: `entry_hold:${contestId}:${userId}`,
+    }).session(s).select("_id").lean();
+    if (existingHold) return viewOf(currentWallet);
+    if (currentWallet.totalPaise - currentWallet.heldPaise < amountPaise) {
+      throw new ForbiddenError("Insufficient balance for this stake");
+    }
     const { wallet } = await applyLedger({
       session: s, userId, amount: 0, heldDelta: amountPaise, type: "entry_fee_hold",
       refType: "contest", refId: contestId, note: "Stake held for battle",
@@ -72,6 +83,17 @@ export async function holdEntryFee({ userId, contestId, amountPaise, session }) 
     return viewOf(wallet);
   };
   return session ? run(session) : lockedFor(userId, run);
+}
+
+export async function hasEntryFeeHold({ userId, contestId, session }) {
+  let query = LedgerEntry.findOne({
+    userId,
+    refType: "contest",
+    refId: contestId,
+    idempotencyKey: `entry_hold:${contestId}:${userId}`,
+  }).select("_id");
+  if (session) query = query.session(session);
+  return Boolean(await query.lean());
 }
 
 /** Release a hold back to available (unseat / cancel / refund). */

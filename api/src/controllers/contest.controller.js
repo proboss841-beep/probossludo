@@ -66,7 +66,7 @@ export async function listMine(req, res) {
   res.json({ items: dtos, total, page, limit });
 }
 
-/** POST /contests { stake } — creator's stake is HELD, not spent */
+/** POST /contests { stake } — funds are untouched until the creator starts. */
 export async function create(req, res) {
   const { stake } = validate(createContestSchema, req.body);
   const contest = await contestService.createContest({
@@ -74,7 +74,6 @@ export async function create(req, res) {
   });
   const fresh = await Contest.findById(contest._id).select("+roomCode").populate("players.userId", "name");
   emitContestUpdate(fresh || contest);
-  emitWalletUpdate(req.user.id, await walletView(req.user.id));
   res.status(201).json({ contest: contestDto(fresh || contest, { userId: req.user.id, includeRoomCode: true }) });
 }
 
@@ -83,8 +82,23 @@ export async function join(req, res) {
   const contest = await contestService.joinContest({ userId: req.user.id, contestId: req.params.id, ip: req.ip });
   const fresh = await Contest.findById(contest._id).select("+roomCode").populate("players.userId", "name"); // re-read with room code + player names
   emitContestUpdate(fresh || contest);
-  emitWalletUpdate(req.user.id, await walletView(req.user.id));
   res.json({ contest: contestDto(fresh || contest, { userId: req.user.id, includeRoomCode: true }) });
+}
+
+/** POST /contests/:id/start — creator accepts the pending player and locks both stakes. */
+export async function start(req, res) {
+  const contest = await contestService.acceptContest({ userId: req.user.id, contestId: req.params.id });
+  const fresh = await Contest.findById(contest._id).select("+roomCode").populate("players.userId", "name");
+  emitContestUpdate(fresh || contest);
+  res.json({ contest: contestDto(fresh || contest, { userId: req.user.id, includeRoomCode: true }) });
+}
+
+/** POST /contests/:id/reject — remove the pending player and reopen the listing. */
+export async function reject(req, res) {
+  const contest = await contestService.rejectContest({ userId: req.user.id, contestId: req.params.id });
+  const fresh = await Contest.findById(contest._id).select("+roomCode").populate("players.userId", "name");
+  emitContestUpdate(fresh || contest);
+  res.json({ contest: contestDto(fresh || contest, { userId: req.user.id }) });
 }
 
 /** POST /contests/:id/room { roomCode } */

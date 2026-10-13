@@ -100,17 +100,17 @@ test("health reports mongo + redis", async () => {
 
 test("deposit approve credits wallet; replay is rejected (C4/C8)", async () => {
   const A = (await request(app).get("/api/user/profile").set("Authorization", `Bearer ${tokens.A}`)).body;
-  await depositAndApprove(tokens.A, 50000, "UTRTEST123456");
+  await depositAndApprove(tokens.A, 500000, "UTRTEST123456");
   const A2 = (await request(app).get("/api/user/profile").set("Authorization", `Bearer ${tokens.A}`)).body;
-  assert.equal(A2.wallet.totalPaise, A.wallet.totalPaise + 50000);
+  assert.equal(A2.wallet.totalPaise, A.wallet.totalPaise + 500000);
 
-  const d = await request(app).post("/api/payments/deposit").set("Authorization", `Bearer ${tokens.A}`).send({ amountPaise: 10000, utr: "UTRTEST123456" });
+  const d = await request(app).post("/api/payments/deposit").set("Authorization", `Bearer ${tokens.A}`).send({ amountPaise: 500000, utr: "UTRTEST123456" });
   assert.equal(d.status, 409); // duplicate UTR
 });
 
-test("battle lifecycle: create -> join -> results -> auto-settle exactly once", async () => {
-  await depositAndApprove(tokens.B, 50000, "UTRB000001");
-  await depositAndApprove(tokens.C, 50000, "UTRC000001");
+test("battle lifecycle: create -> request -> creator starts -> settle exactly once", async () => {
+  await depositAndApprove(tokens.B, 500000, "UTRB000001");
+  await depositAndApprove(tokens.C, 500000, "UTRC000001");
   const beforeB = (await request(app).get("/api/user/profile").set("Authorization", `Bearer ${tokens.B}`)).body.wallet.totalPaise;
   const beforeC = (await request(app).get("/api/user/profile").set("Authorization", `Bearer ${tokens.C}`)).body.wallet.totalPaise;
 
@@ -120,7 +120,19 @@ test("battle lifecycle: create -> join -> results -> auto-settle exactly once", 
 
   const joined = await request(app).post(`/api/contests/${id}/join`).set("Authorization", `Bearer ${tokens.C}`);
   assert.equal(joined.status, 200, JSON.stringify(joined.body));
-  assert.equal(joined.body.contest.status, "running");
+  assert.equal(joined.body.contest.status, "join_requested");
+  const pendingB = await walletOf(ids.B);
+  const pendingC = await walletOf(ids.C);
+  assert.equal(pendingB.heldPaise, 0);
+  assert.equal(pendingC.heldPaise, 0);
+
+  const started = await request(app).post(`/api/contests/${id}/start`).set("Authorization", `Bearer ${tokens.B}`);
+  assert.equal(started.status, 200, JSON.stringify(started.body));
+  assert.equal(started.body.contest.status, "running");
+  const lockedB = await walletOf(ids.B);
+  const lockedC = await walletOf(ids.C);
+  assert.equal(lockedB.heldPaise, 5000);
+  assert.equal(lockedC.heldPaise, 5000);
 
   await request(app).post(`/api/contests/${id}/room`).set("Authorization", `Bearer ${tokens.B}`).send({ roomCode: "ROOM99" });
 
@@ -155,7 +167,7 @@ test("battle lifecycle: create -> join -> results -> auto-settle exactly once", 
   assert.equal(recB.drift, 0);
 });
 
-test("cancel refunds the creator's hold", async () => {
+test("cancelling an unmatched battle does not change wallet funds", async () => {
   const before = (await request(app).get("/api/user/profile").set("Authorization", `Bearer ${tokens.B}`)).body.wallet.totalPaise;
   const c = await request(app).post("/api/contests").set("Authorization", `Bearer ${tokens.B}`).send({ stake: 5000 });
   const cancelled = await request(app).post(`/api/contests/${c.body.contest.id}/cancel`).set("Authorization", `Bearer ${tokens.B}`);
@@ -164,17 +176,24 @@ test("cancel refunds the creator's hold", async () => {
   assert.equal(after, before);
 });
 
-test("insufficient balance cannot join and leaves the battle intact", async () => {
+test("insufficient balance blocks start; creator can reject without moving funds", async () => {
   const D = (await loginPlayer("9999000004")).token; // no money
   const c = await request(app).post("/api/contests").set("Authorization", `Bearer ${tokens.B}`).send({ stake: 5000 });
   const res = await request(app).post(`/api/contests/${c.body.contest.id}/join`).set("Authorization", `Bearer ${D}`);
-  assert.equal(res.status, 403);
+  assert.equal(res.status, 200, JSON.stringify(res.body));
+  assert.equal(res.body.contest.status, "join_requested");
+  const start = await request(app).post(`/api/contests/${c.body.contest.id}/start`).set("Authorization", `Bearer ${tokens.B}`);
+  assert.equal(start.status, 403, JSON.stringify(start.body));
   const fresh = await Contest.findById(c.body.contest.id);
-  assert.equal(fresh.status, "open");
-  assert.equal(fresh.players.length, 1);
+  assert.equal(fresh.status, "join_requested");
+  assert.equal(fresh.players.length, 2);
+  const rejected = await request(app).post(`/api/contests/${c.body.contest.id}/reject`).set("Authorization", `Bearer ${tokens.B}`);
+  assert.equal(rejected.status, 200, JSON.stringify(rejected.body));
+  assert.equal(rejected.body.contest.status, "open");
+  assert.equal(rejected.body.contest.players.length, 1);
 });
 
-test("expiry sweep refunds the creator of a stale open battle", async () => {
+test("expiry sweep leaves creator funds unchanged for an unheld battle", async () => {
   const before = (await request(app).get("/api/user/profile").set("Authorization", `Bearer ${tokens.B}`)).body.wallet.totalPaise;
   // B already holds an open ₹50 battle — a second one must use a different amount
   const c = await request(app).post("/api/contests").set("Authorization", `Bearer ${tokens.B}`).send({ stake: 10000 });
@@ -186,7 +205,7 @@ test("expiry sweep refunds the creator of a stale open battle", async () => {
   assert.equal(after, before);
 });
 
-test("Adda Ludo guards: duplicate amount, max 2 open, join auto-cancels other open battles", async () => {
+test("Adda Ludo guards: duplicate amount, max 2 open, start auto-cancels other open battles", async () => {
   // B still holds one open ₹50 battle from the previous test
   const dup = await request(app).post("/api/contests").set("Authorization", `Bearer ${tokens.B}`).send({ stake: 5000 });
   assert.equal(dup.status, 409); // same amount twice is not allowed
@@ -197,17 +216,22 @@ test("Adda Ludo guards: duplicate amount, max 2 open, join auto-cancels other op
   const third = await request(app).post("/api/contests").set("Authorization", `Bearer ${tokens.B}`).send({ stake: 15000 });
   assert.equal(third.status, 409); // maximum 2 searching battles
 
-  // G joins B's ₹100 battle -> B's other open battle is auto-cancelled and refunded
+  // G requests B's ₹100 battle; other listings remain until B accepts.
   const G = await loginPlayer("9999000007");
-  await depositAndApprove(G.token, 50000, "UTRG000001");
+  await depositAndApprove(G.token, 500000, "UTRG000001");
   const before = (await request(app).get("/api/user/profile").set("Authorization", `Bearer ${tokens.B}`)).body.wallet.totalPaise;
   const joined = await request(app).post(`/api/contests/${second.body.contest.id}/join`).set("Authorization", `Bearer ${G.token}`);
   assert.equal(joined.status, 200, JSON.stringify(joined.body));
 
-  const openLeft = await Contest.countDocuments({ "players.userId": ids.B, status: "open" });
-  assert.equal(openLeft, 0);
+  let openLeft = await Contest.countDocuments({ "players.userId": ids.B, status: "open" });
+  assert.equal(openLeft, 1);
   const after = (await request(app).get("/api/user/profile").set("Authorization", `Bearer ${tokens.B}`)).body.wallet.totalPaise;
-  assert.equal(after, before); // the cancelled battle's hold was released, not consumed
+  assert.equal(after, before); // requesting to join does not move funds
+
+  const started = await request(app).post(`/api/contests/${second.body.contest.id}/start`).set("Authorization", `Bearer ${tokens.B}`);
+  assert.equal(started.status, 200, JSON.stringify(started.body));
+  openLeft = await Contest.countDocuments({ "players.userId": ids.B, status: "open" });
+  assert.equal(openLeft, 0);
 
   // while an unsubmitted battle runs, B cannot start another one (Adda rule)
   const blocked = await request(app).post("/api/contests").set("Authorization", `Bearer ${tokens.B}`).send({ stake: 5000 });
@@ -239,6 +263,8 @@ test("referral: 2% of the referred winner's stake, then redeem to wallet", async
 
   const joined = await request(app).post(`/api/contests/${cid}/join`).set("Authorization", `Bearer ${F.token}`);
   assert.equal(joined.status, 200, JSON.stringify(joined.body));
+  const started = await request(app).post(`/api/contests/${cid}/start`).set("Authorization", `Bearer ${E}`);
+  assert.equal(started.status, 200, JSON.stringify(started.body));
   await request(app).post(`/api/contests/${cid}/result`).set("Authorization", `Bearer ${E}`).send({ outcome: "won", screenshotKeys: [`${eId}/battle/proof.png`] });
   const settled = await request(app).post(`/api/contests/${cid}/result`).set("Authorization", `Bearer ${F.token}`).send({ outcome: "lost" });
   assert.equal(settled.body.contest.status, "approved");
@@ -270,7 +296,7 @@ test("referral: 2% of the referred winner's stake, then redeem to wallet", async
 test("withdrawal: kyc gate -> hold -> admin pay -> ledger drift 0", async () => {
   const Cuser = (await import("../src/db/models/user.model.js")).User;
   const cDoc = await Cuser.findOne({ phone: "9999000003" });
-  await depositAndApprove(tokens.C, 100000, "UTRC000002"); // ₹1000 extra so the ₹1000 minimum is reachable
+  await depositAndApprove(tokens.C, 500000, "UTRC000002"); // ₹5000 gateway minimum
 
   const denied = await request(app).post("/api/payments/withdraw").set("Authorization", `Bearer ${tokens.C}`).send({ amountPaise: 100000, upiId: "demo@upi" });
   assert.equal(denied.status, 403); // kyc required

@@ -17,9 +17,10 @@ import { Button, Empty, SectionTitle, Skeleton } from "../components/ui.jsx";
  * Endpoints (verified against contest.routes.js):
  *   GET  /contests/open        open battles
  *   GET  /contests/mine        my battles (all statuses)
- *   POST /contests             { stake } — stake is HELD, not spent
- *   POST /contests/:id/join    second seat (both holds land before play)
- *   POST /contests/:id/cancel  refunds the creator's hold
+ *   POST /contests             { stake } — no funds move while searching
+ *   POST /contests/:id/join    second seat requests to join
+ *   POST /contests/:id/start   creator accepts; both stakes are held
+ *   POST /contests/:id/reject  creator rejects and reopens the listing
  */
 
 const MAX_SEARCHING_BATTLES = 2;
@@ -28,48 +29,8 @@ const MAX_AMOUNT = 100000;
 const AMOUNT_STEP = 50;
 
 const ACTIVE_STATUSES = ["join_requested", "running", "room_submitted", "result_submitted", "cancel_requested"];
-const RUNNING_STATUSES = ["join_requested", "running", "room_submitted", "result_submitted", "cancel_requested"];
-
-/**
- * Social-proof "running battles" — Adda Ludo ships this list in battle.jsx.
- * They are display-only (isFake → clicking never navigates) and never touch the
- * API. Delete this block to switch the list to real battles only.
- *
- * Real accounts get a random 5-letter handle at login (see
- * apps/api/src/services/auth.service.js), so the stand-ins are generated with
- * the same alphabet/length — they read as genuinely assigned players instead
- * of the old look-alike "Player 145" / "Player 256" counters.
- */
-const NAME_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ"; // I and O omitted (look-alikes)
-const makeFakeName = () => {
-  let out = "";
-  for (let i = 0; i < 5; i++) out += NAME_ALPHABET[Math.floor(Math.random() * NAME_ALPHABET.length)];
-  return out;
-};
-
-const FAKE_BATTLE_AMOUNTS = [
-  1000, 2050, 500, 350, 3500, 450, 150, 500, 100, 1450, 350, 2050, 1900, 600, 2000, 200, 100, 2250, 150, 3500, 5500, 950, 50, 1050,
-];
-
-const FAKE_RUNNING_AMOUNTS = FAKE_BATTLE_AMOUNTS.slice(0, 15);
-
-const FAKE_RUNNING_BATTLES = FAKE_RUNNING_AMOUNTS.map((amount, index) => {
-  const creatorName = makeFakeName();
-  let opponentName = makeFakeName();
-  while (opponentName === creatorName) opponentName = makeFakeName();
-
-  const stakePaise = rupeesToPaise(amount);
-  return {
-    id: `fake_run_${index + 1}`,
-    battleId: `fake_run_${index + 1}`,
-    stake: stakePaise,
-    prize: computePrize(stakePaise).prizePaise,
-    status: "running",
-    isFake: true,
-    createdBy: { name: creatorName },
-    opponent: { name: opponentName },
-  };
-});
+// Join requests remain in the open list until the match actually starts.
+const RUNNING_STATUSES = ["running", "room_submitted", "result_submitted", "cancel_requested"];
 
 const creatorOf = (c) => c?.players?.find((p) => p.seat === 1) || null;
 const opponentOf = (c) => c?.players?.find((p) => p.seat === 2) || null;
@@ -171,7 +132,7 @@ export default function Play() {
       return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
     });
 
-    return [...real, ...FAKE_RUNNING_BATTLES];
+    return real;
   }, [myBattles]);
 
   const previewPaise = useMemo(() => {
@@ -248,8 +209,8 @@ export default function Play() {
     try {
       setActionLoading(true);
       await api(`/contests/${battleId}/join`, { method: "POST" });
+      toast.success("Join request sent — waiting for the creator");
       invalidate();
-      navigate(`/battle/${battleId}`);
     } catch (err) {
       reportError(err);
     } finally {
@@ -261,7 +222,35 @@ export default function Play() {
     try {
       setActionLoading(true);
       await api(`/contests/${battleId}/cancel`, { method: "POST" });
-      toast.success("Battle cancelled — amount refunded");
+      toast.success("Battle cancelled or join request withdrawn");
+      invalidate();
+    } catch (err) {
+      reportError(err);
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function startBattle(battleId) {
+    try {
+      setActionLoading(true);
+      await api(`/contests/${battleId}/start`, { method: "POST" });
+      toast.success("Battle started — both stakes are now locked");
+      invalidate();
+      navigate(`/battle/${battleId}`);
+    } catch (err) {
+      reportError(err);
+      invalidate();
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function rejectRequest(battleId) {
+    try {
+      setActionLoading(true);
+      await api(`/contests/${battleId}/reject`, { method: "POST" });
+      toast.success("Join request rejected — battle is open again");
       invalidate();
     } catch (err) {
       reportError(err);
@@ -271,6 +260,31 @@ export default function Play() {
   }
 
   function getOpenAction(c) {
+    if (c.status === "join_requested") {
+      if (creatorOf(c)?.isYou) {
+        return (
+          <div className="flex flex-col gap-1">
+            <Button variant="success" className="px-3 py-1.5 text-xs" disabled={actionLoading} onClick={() => startBattle(c.id)}>
+              START
+            </Button>
+            <Button variant="danger" className="px-3 py-1.5 text-xs" disabled={actionLoading} onClick={() => rejectRequest(c.id)}>
+              REJECT
+            </Button>
+          </div>
+        );
+      }
+      if (opponentOf(c)?.isYou) {
+        return (
+          <div className="flex flex-col items-center gap-1">
+            <p className="text-[10px] font-bold text-slate-500">WAITING</p>
+            <Button variant="danger" className="px-3 py-1.5 text-xs" disabled={actionLoading} onClick={() => cancelBattle(c.id)}>
+              CANCEL
+            </Button>
+          </div>
+        );
+      }
+    }
+
     if (c.status === "open" && creatorOf(c)?.isYou) {
       return (
         <Button variant="danger" className="px-4 py-2 text-xs" disabled={actionLoading} onClick={() => cancelBattle(c.id)}>
@@ -400,10 +414,7 @@ export default function Play() {
             <MatchCard
               key={c.id}
               battle={c}
-              onClick={() => {
-                if (c.isFake) return;
-                navigate(`/battle/${c.id}`);
-              }}
+              onClick={() => navigate(`/battle/${c.id}`)}
             />
           ))}
         </div>
@@ -439,10 +450,10 @@ function MatchCard({ battle, onClick }) {
 
   const status = String(battle.status || "").toLowerCase();
   const isPending = status === "result_submitted" || status === "cancel_requested";
-  const mine = !battle.isFake && isMine(battle);
+  const mine = isMine(battle);
 
-  const creatorName = creatorOf(battle)?.name || battle.createdBy?.name || "Player";
-  const opponentName = opponentOf(battle)?.name || battle.opponent?.name || "Opponent";
+  const creatorName = creatorOf(battle)?.name || "Player";
+  const opponentName = opponentOf(battle)?.name || "Opponent";
   const prize = battle.prize ?? computePrize(battle.stake).prizePaise;
 
   return (
@@ -474,13 +485,7 @@ function MatchCard({ battle, onClick }) {
         <PlayerAvatar name={creatorName} />
 
         <div className="flex shrink-0 items-center justify-center">
-          {battle.isFake ? (
-            <img
-              src="/battle-vs.png"
-              alt="versus"
-              className="h-14 w-14 object-contain drop-shadow-[0_0_8px_rgba(244,20,104,.2)]"
-            />
-          ) : mine ? (
+          {mine ? (
             isPending ? (
               <span className="rounded-full bg-orange-500 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-white shadow-md shadow-orange-500/20">
                 Pending
@@ -542,8 +547,8 @@ function PlayerAvatar({ name }) {
 function MoneyBlock({ label, value, right = false }) {
   return (
     <div className={right ? "text-right" : "text-left"}>
-      <p className="text-[11px] font-medium text-slate-500">{label}</p>
-      <p className="mt-0.5 text-sm font-black text-white">{formatPaise(value || 0)}</p>
+      <p className="text-[11px] font-medium text-slate-600">{label}</p>
+      <p className="mt-0.5 text-sm font-black text-slate-950">{formatPaise(value || 0)}</p>
     </div>
   );
 }
