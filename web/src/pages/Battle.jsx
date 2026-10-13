@@ -4,9 +4,18 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, apiUpload } from "../lib/api.js";
 import compressImage from "../lib/compressImage.js";
 import { socket } from "../lib/socket.js";
-import { formatPaise } from "@lpludo/shared";
 import { useToast } from "../components/Toast.jsx";
 import { Button, Empty, Input, Panel, Skeleton, StatusBadge } from "../components/ui.jsx";
+
+/** Local Helper Function to format paise into Rupees (₹) */
+function formatPaise(paise, opts = {}) {
+  const rupees = (Number(paise) || 0) / 100;
+  const formatted = rupees.toLocaleString("en-IN", {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 0,
+  });
+  return opts.withSymbol === false ? formatted : `₹${formatted}`;
+}
 
 /** statuses that belong in the lobby's "Running Battles" list */
 const RUNNING_STATUSES = ["join_requested", "running", "room_submitted", "result_submitted", "cancel_requested"];
@@ -246,8 +255,6 @@ export default function Battle() {
     const me = c.players?.find((p) => p.isYou);
     const inBattle = Boolean(me);
     const isCreator = Boolean(c.players?.find((p) => p.seat === 1)?.isYou);
-    const bothSeated = (c.players?.length || 0) === 2;
-    const isTerminal = ["approved", "cancelled", "expired"].includes(c.status);
     const winner = c.winnerUserId ? c.players?.find((p) => String(p.userId) === String(c.winnerUserId)) : null;
     const youWon = Boolean(winner && winner.isYou);
     const myReport = Boolean((c.resultReports || []).some((r) => String(r.userId) === String(me?.userId)));
@@ -334,7 +341,7 @@ export default function Battle() {
           </Panel>
         )}
 
-        {/* Join request — the creator accepts to start (and lock both stakes) */}
+        {/* Join request — creator accepts to start */}
         {c.status === "join_requested" && (
           <Panel title={isCreator ? "Opponent Found" : "Join Requested"}>
             {isCreator ? (
