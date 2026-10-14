@@ -235,7 +235,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/play" element={<Play />} />
-          <Route path="/battle" element={<Battle />} />
+          <Route path="/battle" element={<Play />} />
           <Route path="/battle/:id" element={<Battle />} />
           <Route path="/wallet" element={<Wallet />} />
           <Route path="/profile" element={<Profile />} />
