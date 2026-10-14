@@ -230,40 +230,29 @@ export default function Play() {
       if (creatorOf(c)?.isYou) {
         return (
           <div className="flex flex-col gap-1">
-            <Button variant="success" className="px-3 py-1.5 text-xs" disabled={actionLoading} onClick={() => startBattle(c.id)}>
+            <Button variant="success" className="px-2.5 py-1 text-[10px]" disabled={actionLoading} onClick={() => startBattle(c.id)}>
               START
             </Button>
-            <Button variant="danger" className="px-3 py-1.5 text-xs" disabled={actionLoading} onClick={() => rejectRequest(c.id)}>
+            <Button variant="danger" className="px-2.5 py-1 text-[10px]" disabled={actionLoading} onClick={() => rejectRequest(c.id)}>
               REJECT
             </Button>
           </div>
         );
       }
       if (opponentOf(c)?.isYou) {
-        return (
-          <div className="flex flex-col items-center gap-1">
-            <p className="text-[10px] font-bold text-slate-500">WAITING</p>
-            <Button variant="danger" className="px-3 py-1.5 text-xs" disabled={actionLoading} onClick={() => cancelBattle(c.id)}>
-              CANCEL
-            </Button>
-          </div>
-        );
+        return <LoadingIndicator label="WAITING" />;
       }
     }
 
     if (c.status === "open" && creatorOf(c)?.isYou) {
-      return (
-        <Button variant="danger" className="px-4 py-2 text-xs" disabled={actionLoading} onClick={() => cancelBattle(c.id)}>
-          Cancel
-        </Button>
-      );
+      return <LoadingIndicator />;
     }
 
     if (c.status === "open") {
       return (
         <Button
           variant="success"
-          className="px-4 py-2 text-xs"
+          className="px-3 py-1.5 text-[11px]"
           disabled={actionLoading}
           onClick={() => joinMatch(c.id)}
         >
@@ -272,12 +261,7 @@ export default function Play() {
       );
     }
 
-    return (
-      <div className="flex items-center gap-1.5">
-        <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-brand-500/30 border-t-brand-500" />
-        <p className="text-[10px] font-bold text-slate-500">WAITING</p>
-      </div>
-    );
+    return <LoadingIndicator label="WAITING" />;
   }
 
   const loading = open.isLoading || mine.isLoading;
@@ -361,7 +345,18 @@ export default function Play() {
           {!loading && visibleOpenBattles.length === 0 && <Empty title="No Battles Live" hint="Create one above to get started." />}
 
           {visibleOpenBattles.map((c) => (
-            <OpenCard key={c.id} battle={c} action={getOpenAction(c)} />
+            <OpenCard
+              key={c.id}
+              battle={c}
+              action={getOpenAction(c)}
+              onCancel={
+                (c.status === "open" && creatorOf(c)?.isYou) ||
+                (c.status === "join_requested" && opponentOf(c)?.isYou)
+                  ? () => cancelBattle(c.id)
+                  : null
+              }
+              cancelDisabled={actionLoading}
+            />
           ))}
         </div>
       </div>
@@ -386,13 +381,27 @@ export default function Play() {
   );
 }
 
-function OpenCard({ battle, action }) {
+function OpenCard({ battle, action, onCancel, cancelDisabled }) {
   const creator = creatorOf(battle);
   return (
-    <article className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-card">
-      <div className="flex items-center gap-2 border-b border-slate-100 bg-gray-100 px-3 py-2">
-        <h3 className="text-[11px] font-semibold text-gray-600">Challenge From</h3>
-        <h3 className="truncate text-[12px] font-black text-slate-900">{creator?.name || "Player"}</h3>
+    <article className="overflow-hidden rounded-2xl border border-[#f41468]/70 bg-[#1a082a] shadow-[0_0_14px_rgba(244,20,104,.12)]">
+      <div className="relative flex min-h-10 items-center gap-2 border-b border-[#f41468]/30 bg-[#321043] px-3 py-2">
+        <h3 className="text-[11px] font-semibold text-white/75">Challenge From</h3>
+        <h3 className={`truncate text-[12px] font-black text-white ${onCancel ? "pr-10" : ""}`}>{creator?.name || "Player"}</h3>
+        {onCancel && (
+          <button
+            type="button"
+            aria-label={battle.status === "join_requested" ? "Withdraw join request" : "Cancel open battle"}
+            title={battle.status === "join_requested" ? "Withdraw join request" : "Cancel open battle"}
+            disabled={cancelDisabled}
+            onClick={onCancel}
+            className="absolute right-2 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white text-[#f41468] shadow-md ring-2 ring-[#f41468]/40 transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-7 w-7" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round">
+              <path d="m6 6 12 12M18 6 6 18" />
+            </svg>
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-3 items-center gap-2 px-3 py-3">
@@ -418,29 +427,29 @@ function MatchCard({ battle, onClick }) {
   return (
     <article
       onClick={onClick}
-      className={`cursor-pointer overflow-hidden rounded-2xl border bg-white shadow-card transition active:scale-[0.99] ${
-        isPending ? "border-orange-200" : "border-gray-100"
+      className={`cursor-pointer overflow-hidden rounded-2xl border bg-[#1a082a] shadow-[0_0_14px_rgba(244,20,104,.12)] transition active:scale-[0.99] ${
+        isPending ? "border-orange-300/70" : "border-[#f41468]/60"
       }`}
     >
-      <div className="flex items-center justify-between gap-2 border-b border-slate-100 bg-gray-100 px-3 py-1.5">
+      <div className="flex items-center justify-between gap-2 border-b border-[#f41468]/30 bg-[#321043] px-3 py-1.5">
         <div className="flex min-w-0 items-center gap-1.5">
-          <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-gray-600">Playing For</span>
+          <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-white/75">Playing For</span>
           <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-300 via-brand-500 to-[#C98509] text-[10px] font-black text-white shadow-sm">
             ₹
           </span>
-          <span className="truncate text-xs font-black text-slate-900">{formatPaise(battle.stake, { withSymbol: false })}</span>
+          <span className="truncate text-xs font-black text-white">{formatPaise(battle.stake, { withSymbol: false })}</span>
         </div>
 
         <div className="flex min-w-0 items-center gap-1.5">
-          <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-gray-600">Prize</span>
+          <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-white/75">Prize</span>
           <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-300 via-brand-500 to-[#C98509] text-[10px] font-black text-white shadow-sm">
             ₹
           </span>
-          <span className="truncate text-xs font-black text-slate-900">{formatPaise(prize, { withSymbol: false })}</span>
+          <span className="truncate text-xs font-black text-white">{formatPaise(prize, { withSymbol: false })}</span>
         </div>
       </div>
 
-      <div className="flex items-center justify-between gap-2 px-8 py-2.5">
+      <div className="flex items-center justify-between gap-2 bg-[#1a082a] px-8 py-2.5">
         <PlayerAvatar name={creatorName} />
 
         <div className="flex shrink-0 items-center justify-center">
@@ -498,7 +507,7 @@ function PlayerAvatar({ name }) {
           className="h-full w-full object-cover"
         />
       </div>
-      <p className="w-full truncate text-center text-[10px] font-bold text-slate-800">{safeName}</p>
+      <p className="w-full truncate text-center text-[10px] font-bold text-white">{safeName}</p>
     </div>
   );
 }
@@ -506,8 +515,17 @@ function PlayerAvatar({ name }) {
 function MoneyBlock({ label, value, right = false }) {
   return (
     <div className={right ? "text-right" : "text-left"}>
-      <p className="text-[11px] font-medium text-slate-600">{label}</p>
-      <p className="mt-0.5 text-sm font-black text-slate-950">{formatPaise(value || 0)}</p>
+      <p className="text-[11px] font-medium text-white/75">{label}</p>
+      <p className="mt-0.5 text-sm font-black text-white">{formatPaise(value || 0)}</p>
+    </div>
+  );
+}
+
+function LoadingIndicator({ label }) {
+  return (
+    <div role="status" aria-label={label || "Waiting for an opponent"} className={`flex items-center justify-center ${label ? "gap-1.5" : ""}`}>
+      <img src="/loading-spinner.png" alt="" aria-hidden="true" className="h-10 w-10 animate-spin object-contain" />
+      {label && <p className="text-[10px] font-bold text-white/80">{label}</p>}
     </div>
   );
 }
