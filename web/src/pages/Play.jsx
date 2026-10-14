@@ -7,29 +7,12 @@ import { computePrize, formatPaise, rupeesToPaise } from "../lib/money.js";
 import { useToast } from "../components/Toast.jsx";
 import { Button, Empty, SectionTitle, Skeleton } from "../components/ui.jsx";
 
-/**
- * Battle lobby — same-to-same as Adda Ludo's battle.jsx, on the new UI:
- *   • create a battle with any amount ₹50 – ₹1,00,000 in multiples of ₹50
- *   • open battles list ("Challenge From" + Entry Fee / Winning + PLAY|Cancel)
- *   • running battles list (Playing For / Prize + VIEW|Pending)
- *   • Adda guards: one active battle, max 2 searching battles, no duplicate amount
- *
- * Endpoints (verified against contest.routes.js):
- *   GET  /contests/open        open battles
- *   GET  /contests/mine        my battles (all statuses)
- *   POST /contests             { stake } — no funds move while searching
- *   POST /contests/:id/join    second seat requests to join
- *   POST /contests/:id/start   creator accepts; both stakes are held
- *   POST /contests/:id/reject  creator rejects and reopens the listing
- */
-
 const MAX_SEARCHING_BATTLES = 2;
 const MIN_AMOUNT = 50;
 const MAX_AMOUNT = 100000;
 const AMOUNT_STEP = 50;
 
 const ACTIVE_STATUSES = ["join_requested", "running", "room_submitted", "result_submitted", "cancel_requested"];
-// Join requests remain in the open list until the match actually starts.
 const RUNNING_STATUSES = ["running", "room_submitted", "result_submitted", "cancel_requested"];
 
 const creatorOf = (c) => c?.players?.find((p) => p.seat === 1) || null;
@@ -65,7 +48,6 @@ export default function Play() {
     ? `https://wa.me/${supportNumber}?text=${supportMessage}`
     : `https://wa.me/?text=${supportMessage}`;
 
-  // realtime: socket deltas patch the queries instead of refetch storms (P1/F2)
   useEffect(() => {
     if (!socket.connected) socket.connect();
     function resubscribe() {
@@ -92,13 +74,12 @@ export default function Play() {
     [myBattles]
   );
 
-  /** the caller's own report on this battle (DTO marks players with isYou) */
   const hasMyReport = (c) => {
     const me = (c.players || []).find((p) => p.isYou);
     return (c.resultReports || []).some((r) => String(r.userId) === String(me?.userId));
   };
 
-  /** Adda rule: an unsubmitted active battle blocks create/join. */
+  // Guard: checks if user is already in an active/running match
   const myActiveBattle = useMemo(
     () =>
       myBattles.find((c) => {
@@ -123,15 +104,12 @@ export default function Play() {
 
   const runningBattles = useMemo(() => {
     const real = myBattles.filter((c) => RUNNING_STATUSES.includes(c.status));
-
-    // the player's own battles (the ones showing VIEW) always go on top
     real.sort((a, b) => {
       const aMine = isMine(a) ? 0 : 1;
       const bMine = isMine(b) ? 0 : 1;
       if (aMine !== bMine) return aMine - bMine;
       return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
     });
-
     return real;
   }, [myBattles]);
 
@@ -147,37 +125,24 @@ export default function Play() {
     qc.invalidateQueries({ queryKey: ["profile"] });
   }
 
-  function reportError(err) {
-    const msg = String(err?.message || "Something went wrong");
-    if (/insufficient|balance|fund/i.test(msg)) toast.error("Insufficient balance");
-    else toast.error(msg);
-  }
-
   function validateAmount() {
     const amt = Number(betAmount);
-    if (!amt || amt < MIN_AMOUNT) {
-      toast.error(`Min battle ₹${MIN_AMOUNT}`);
-      return false;
-    }
-    if (amt > MAX_AMOUNT) {
-      toast.error(`Max battle ₹${MAX_AMOUNT.toLocaleString("en-IN")}`);
-      return false;
-    }
-    if (amt % AMOUNT_STEP !== 0) {
-      toast.error(`Amount must be in multiples of ₹${AMOUNT_STEP}`);
+    if (!amt || amt < MIN_AMOUNT || amt > MAX_AMOUNT || amt % AMOUNT_STEP !== 0) {
+      toast.error("Amount must be in multiples of 50");
       return false;
     }
     return true;
   }
 
   async function handleCreate() {
-    if (!validateAmount()) return;
     if (myActiveBattle) {
-      toast.error("You are already in a game");
+      toast.error("You are already in a match");
       return;
     }
+    if (!validateAmount()) return;
+
     if (mySearchingBattles.length >= MAX_SEARCHING_BATTLES) {
-      toast.error(`You can keep only ${MAX_SEARCHING_BATTLES} open battles — cancel one first`);
+      toast.error("You can keep only 2 open battles");
       return;
     }
 
@@ -192,10 +157,12 @@ export default function Play() {
       setActionLoading(true);
       await api("/contests", { method: "POST", body: { stake } });
       setBetAmount("");
-      toast.success("Battle created — waiting for an opponent");
       invalidate();
     } catch (err) {
-      reportError(err);
+      const msg = String(err?.message || "");
+      if (/already|game|match/i.test(msg)) {
+        toast.error("You are already in a match");
+      }
     } finally {
       setActionLoading(false);
     }
@@ -203,16 +170,18 @@ export default function Play() {
 
   async function joinMatch(battleId) {
     if (myActiveBattle) {
-      toast.error("You are already in a game");
+      toast.error("You are already in a match");
       return;
     }
     try {
       setActionLoading(true);
       await api(`/contests/${battleId}/join`, { method: "POST" });
-      toast.success("Join request sent — waiting for the creator");
       invalidate();
     } catch (err) {
-      reportError(err);
+      const msg = String(err?.message || "");
+      if (/already|game|match/i.test(msg)) {
+        toast.error("You are already in a match");
+      }
     } finally {
       setActionLoading(false);
     }
@@ -222,10 +191,10 @@ export default function Play() {
     try {
       setActionLoading(true);
       await api(`/contests/${battleId}/cancel`, { method: "POST" });
-      toast.success("Battle cancelled or join request withdrawn");
+      toast.error("Battle cancelled");
       invalidate();
     } catch (err) {
-      reportError(err);
+      // Handle silently or minimal error
     } finally {
       setActionLoading(false);
     }
@@ -235,11 +204,9 @@ export default function Play() {
     try {
       setActionLoading(true);
       await api(`/contests/${battleId}/start`, { method: "POST" });
-      toast.success("Battle started — both stakes are now locked");
       invalidate();
       navigate(`/battle/${battleId}`);
     } catch (err) {
-      reportError(err);
       invalidate();
     } finally {
       setActionLoading(false);
@@ -250,10 +217,9 @@ export default function Play() {
     try {
       setActionLoading(true);
       await api(`/contests/${battleId}/reject`, { method: "POST" });
-      toast.success("Join request rejected — battle is open again");
       invalidate();
     } catch (err) {
-      reportError(err);
+      // Handle silently
     } finally {
       setActionLoading(false);
     }
@@ -349,7 +315,6 @@ export default function Play() {
         </h2>
       </div>
 
-      {/* create battle — free amount, Adda rules */}
       <div className="rounded-3xl border border-gray-100 bg-white p-2 shadow-card">
         <div className="flex items-center gap-2 rounded-full bg-white p-2 ring-1 ring-gray-200">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gray-50 text-base font-black text-slate-700">
@@ -389,7 +354,6 @@ export default function Play() {
         </p>
       </div>
 
-      {/* open battles */}
       <div>
         <SectionTitle title="Open Battles" action={<span className="text-[11px] font-bold text-slate-400">⚔️ live</span>} />
         <div className="mt-2 flex flex-col gap-3">
@@ -404,7 +368,6 @@ export default function Play() {
 
       <div className="h-[3px] rounded-full bg-gray-200" />
 
-      {/* running battles */}
       <div>
         <SectionTitle title="Running Battles" action={<span className="text-[11px] font-bold text-slate-400">⚔️ live</span>} />
         <div className="mt-2 flex flex-col gap-3">
@@ -423,7 +386,6 @@ export default function Play() {
   );
 }
 
-/** Open battle: "Challenge From" band + Entry Fee | action | Winning. */
 function OpenCard({ battle, action }) {
   const creator = creatorOf(battle);
   return (
@@ -435,16 +397,13 @@ function OpenCard({ battle, action }) {
 
       <div className="grid grid-cols-3 items-center gap-2 px-3 py-3">
         <MoneyBlock label="Entry Fee" value={battle.stake} />
-
         <div className="flex shrink-0 justify-center">{action}</div>
-
         <MoneyBlock label="Winning" value={battle.prize ?? computePrize(battle.stake).prizePaise} right />
       </div>
     </article>
   );
 }
 
-/** Running battle: Playing For | Prize band + two players + VIEW/Pending. */
 function MatchCard({ battle, onClick }) {
   if (!battle) return null;
 
