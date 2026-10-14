@@ -14,11 +14,7 @@ const AMOUNT_STEP = 50;
 
 const ACTIVE_STATUSES = ["join_requested", "running", "room_submitted", "result_submitted", "cancel_requested"];
 const RUNNING_STATUSES = ["running", "room_submitted", "result_submitted", "cancel_requested"];
-const DEMO_PLAYER_NAMES = [
-  "Aarav", "Aanya", "Advait", "Anaya", "Arjun", "Diya", "Ishaan", "Isha", "Kabir", "Kiara",
-  "Krish", "Meera", "Neel", "Pari", "Reyansh", "Riya", "Saanvi", "Shaurya", "Tara", "Vihaan",
-  "Zara", "Dev", "Myra", "Rohan", "Nisha", "Veer", "Anika", "Yash", "Kavya", "Om",
-];
+const DEMO_NAME_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ";
 const DEMO_STAKES_RUPEES = [50, 100, 150, 200, 250, 300, 500, 750, 1000, 1500, 2000, 2500, 5000];
 
 const creatorOf = (c) => c?.players?.find((p) => p.seat === 1) || null;
@@ -391,9 +387,7 @@ export default function Play() {
             />
           ))}
 
-          <section aria-label="Fictional demo battles" className="mt-1 space-y-3">
-            {demoBattles.map((battle) => <DemoMatchCard key={battle.id} battle={battle} />)}
-          </section>
+          {demoBattles.map((battle) => <DemoMatchCard key={battle.id} battle={battle} />)}
         </div>
       </div>
     </div>
@@ -527,14 +521,14 @@ function DemoMatchCard({ battle }) {
           <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-300 via-brand-500 to-[#C98509] text-[10px] font-black text-white shadow-sm">₹</span>
           <span className="truncate text-xs font-black text-white">{formatPaise(battle.prize, { withSymbol: false })}</span>
         </div>
-        <span aria-label="Demo battle, not a real match" className="shrink-0 rounded-full bg-amber-300 px-2 py-1 text-[9px] font-black uppercase tracking-wide text-amber-950">
-          Demo
+        <span aria-label="Sample battle, not a real match" className="shrink-0 rounded-full bg-amber-300 px-2 py-1 text-[9px] font-black uppercase tracking-wide text-amber-950">
+          Sample
         </span>
       </div>
       <div className="flex items-center justify-between gap-2 bg-[#1a082a] px-8 py-2.5">
         <PlayerAvatar name={battle.players[0]} />
         <div aria-hidden="true" className="flex shrink-0 items-center justify-center">
-          <span className="rounded-full bg-gradient-to-r from-brand-300/20 via-brand-500/20 to-[#C98509]/20 px-3 py-1 text-xs font-black text-brand-300 ring-1 ring-brand-300/25">VS</span>
+          <img src="/battle-vs.png" alt="" className="h-14 w-14 object-contain drop-shadow-[0_0_8px_rgba(244,20,104,.2)]" />
         </div>
         <PlayerAvatar name={battle.players[1]} />
       </div>
@@ -588,11 +582,15 @@ function createDemoBattles(hourSeed) {
     return ((value ^ (value >>> 14)) >>> 0) / 4_294_967_296;
   };
 
-  const availableNames = [...DEMO_PLAYER_NAMES];
-  for (let index = availableNames.length - 1; index > 0; index -= 1) {
-    const swapIndex = Math.floor(random() * (index + 1));
-    [availableNames[index], availableNames[swapIndex]] = [availableNames[swapIndex], availableNames[index]];
+  const availableNames = new Set();
+  while (availableNames.size < 30) {
+    let name = "";
+    for (let index = 0; index < 5; index += 1) {
+      name += DEMO_NAME_ALPHABET[Math.floor(random() * DEMO_NAME_ALPHABET.length)];
+    }
+    availableNames.add(name);
   }
+  const names = [...availableNames];
 
   return Array.from({ length: 15 }, (_, index) => {
     const stakeRupees = DEMO_STAKES_RUPEES[Math.floor(random() * DEMO_STAKES_RUPEES.length)];
@@ -601,7 +599,7 @@ function createDemoBattles(hourSeed) {
       id: `demo-${hourSeed}-${index}`,
       stake,
       prize: computePrize(stake).prizePaise,
-      players: [availableNames[index * 2], availableNames[index * 2 + 1]],
+      players: [names[index * 2], names[index * 2 + 1]],
     };
   });
 }
