@@ -526,22 +526,30 @@ export default function Battle() {
             </div>
           ) : (
             openContests.map((b) => (
-              <div key={b.id} className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200 p-3 flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase">Entry Fee</p>
-                  <p className="text-sm font-black text-slate-800">{formatPaise(b.stake)}</p>
+              <div key={b.id} className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200 p-3">
+                <div className="mb-2 border-b border-slate-100 pb-2">
+                  <p className="text-[10px] font-bold uppercase text-slate-400">Challenge From</p>
+                  <p className="truncate text-xs font-black uppercase text-slate-800">
+                    {b.players?.find((player) => player.seat === 1)?.name || "Player"}
+                  </p>
                 </div>
-                <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase">Prize Pool</p>
-                  <p className="text-sm font-black text-emerald-600">{formatPaise(b.prize)}</p>
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">Entry Fee</p>
+                    <p className="text-sm font-black text-slate-800">{formatPaise(b.stake)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">Prize Pool</p>
+                    <p className="text-sm font-black text-emerald-600">{formatPaise(b.prize)}</p>
+                  </div>
+                  <button
+                    disabled={busy === "join"}
+                    onClick={() => join(b.id)}
+                    className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-black text-white active:scale-95 disabled:opacity-50"
+                  >
+                    PLAY
+                  </button>
                 </div>
-                <button
-                  disabled={busy === "join"}
-                  onClick={() => join(b.id)}
-                  className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-black text-white active:scale-95 disabled:opacity-50"
-                >
-                  PLAY
-                </button>
               </div>
             ))
           )}
