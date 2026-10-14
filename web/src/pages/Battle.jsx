@@ -17,7 +17,7 @@ function formatPaise(paise, opts = {}) {
   return opts.withSymbol === false ? formatted : `₹${formatted}`;
 }
 
-/** statuses that belong in the lobby's "Running Battles" list */
+/** Active statuses that mean the user is currently playing/in a match */
 const RUNNING_STATUSES = ["join_requested", "running", "room_submitted", "result_submitted", "cancel_requested"];
 
 export default function Battle() {
@@ -30,7 +30,6 @@ export default function Battle() {
   const [betAmount, setBetAmount] = useState("");
   const [roomCode, setRoomCode] = useState("");
   const [busy, setBusy] = useState(null); // "create" | "join" | "room" | "result" | "cancel" | "accept" | "reject"
-  const [reported, setReported] = useState(null);
 
   // Result Reporting + Screenshot Proof State
   const [outcome, setOutcome] = useState("");
@@ -41,7 +40,7 @@ export default function Battle() {
   /*                            API QUERIES                                     */
   /* -------------------------------------------------------------------------- */
 
-  // 1. Fetch Open Battles (Active when in Lobby View)
+  // 1. Fetch Open Battles (Lobby View)
   const openContestsQuery = useQuery({
     queryKey: ["contests", "open"],
     queryFn: () => api("/contests/open").then((r) => r.items || []),
@@ -49,7 +48,7 @@ export default function Battle() {
     refetchInterval: 10_000,
   });
 
-  // 2. Fetch Running Battles (Active when in Lobby View)
+  // 2. Fetch User's Active / Running Battles (Lobby View)
   const runningContestsQuery = useQuery({
     queryKey: ["contests", "running"],
     queryFn: () =>
@@ -60,7 +59,7 @@ export default function Battle() {
     refetchInterval: 10_000,
   });
 
-  // 3. Fetch Single Contest Details (Active when in Room View with ID)
+  // 3. Fetch Single Contest Details (Room View)
   const contestQuery = useQuery({
     queryKey: ["contest", id],
     queryFn: () => api(`/contests/${id}`).then((r) => r.contest),
@@ -78,7 +77,6 @@ export default function Battle() {
       if (id) {
         socket.emit("watch:contest", { contestId: id }, () => {});
       } else {
-        // lobby view: subscribe to the open-battles room for live list changes
         socket.emit("subscribe:contests", {}, () => {});
       }
     }
@@ -108,10 +106,9 @@ export default function Battle() {
 
   useEffect(() => {
     if (contestQuery.isError) {
-      toast.error(contestQuery.error?.message || "Battle not found");
       navigate("/");
     }
-  }, [contestQuery.isError, navigate, toast]);
+  }, [contestQuery.isError, navigate]);
 
   /* -------------------------------------------------------------------------- */
   /*                            ACTION HANDLERS                                 */
@@ -128,60 +125,74 @@ export default function Battle() {
       ]);
       return res;
     } catch (err) {
-      toast.error(err?.message || "Action failed");
+      // Suppress raw backend errors and show clean/restricted error messages
+      if (err?.message?.includes("already") || err?.message?.includes("running")) {
+        toast.error("You are already in a match");
+      }
     } finally {
       setBusy(null);
     }
   }
 
-  // Create Battle Action
+  // Check if user currently has an active running match
+  const hasActiveMatch = (runningContestsQuery.data || []).length > 0;
+
+  // Create Battle Action (Amount MUST be multiple of 50, No wallet deduction here)
   const handleCreate = () => {
+    if (hasActiveMatch) {
+      return toast.error("You are already in a match");
+    }
+
     const amt = Number(betAmount);
-    if (!amt || amt < 50) return toast.error("Min battle amount is ₹50");
-    if (amt > 100000) return toast.error("Max battle amount is ₹100,000");
-    if (amt % 50 !== 0) return toast.error("Amount must be in multiples of ₹50");
+    if (!amt || amt % 50 !== 0) {
+      return toast.error("Amount must be in multiples of 50");
+    }
 
     return run(
       "create",
       async () => {
         const data = await api("/contests", {
           method: "POST",
-          body: { stake: amt * 100 }, // Converted to paise for Backend API
+          body: { stake: amt * 100 },
         });
         setBetAmount("");
         if (data?.contest?.id) {
           navigate(`/battle/${data.contest.id}`);
         }
-      },
-      "Battle created successfully!"
+      }
+      // No extra notification on create
     );
   };
 
-  // Join Battle Action (sends a join request — no amount is locked yet)
-  const join = (targetId = id) =>
-    run(
+  // Join Battle Action (Opponent sends join request)
+  const join = (targetId = id) => {
+    if (hasActiveMatch) {
+      return toast.error("You are already in a match");
+    }
+
+    return run(
       "join",
       async () => {
         await api(`/contests/${targetId}/join`, { method: "POST" });
         if (targetId !== id) navigate(`/battle/${targetId}`);
-      },
-      "Join request sent — waiting for the creator to accept"
+      }
+      // No extra notification on join request
     );
+  };
 
-  // Accept Join Request Action (creator starts the match; both stakes lock here)
+  // Accept Join Request Action (Creator accepts -> Status becomes running -> Wallet amounts deducted)
   const accept = (targetId = id) =>
     run(
       "accept",
-      () => api(`/contests/${targetId}/accept`, { method: "POST" }),
-      "Battle started!"
+      () => api(`/contests/${targetId}/accept`, { method: "POST" })
+      // Starts match and deducts stakes from wallet
     );
 
-  // Reject Join Request Action (creator declines — the battle reopens)
+  // Reject Join Request Action (Creator declines -> Request removed)
   const rejectJoin = (targetId = id) =>
     run(
       "reject",
-      () => api(`/contests/${targetId}/reject`, { method: "POST" }),
-      "Join request declined"
+      () => api(`/contests/${targetId}/reject`, { method: "POST" })
     );
 
   // Submit Room Code Action
@@ -192,16 +203,12 @@ export default function Battle() {
         api(`/contests/${id}/room`, {
           method: "POST",
           body: { roomCode: roomCode.trim().toUpperCase() },
-        }),
-      "Room code shared!"
+        })
     );
 
   // Submit Result Action
   const submitResultReport = () => {
     if (!outcome) return;
-    if (outcome === "won" && !screenshot) {
-      return toast.error("Upload your winning screenshot proof first");
-    }
 
     return run(
       "result",
@@ -216,18 +223,16 @@ export default function Battle() {
           method: "POST",
           body: { outcome, screenshotKeys },
         });
-        setReported(outcome);
-      },
-      outcome === "cancel" ? "Cancellation requested" : "Result reported successfully!"
+      }
     );
   };
 
-  // Cancel Battle Action
+  // Cancel Battle Action (Only allowed toast notification)
   const cancelBattle = (targetId = id) =>
     run(
       "cancel",
       () => api(`/contests/${targetId}/cancel`, { method: "POST" }),
-      "Battle cancelled — amount refunded"
+      "Battle cancelled"
     );
 
   function pickScreenshot(file) {
@@ -300,29 +305,14 @@ export default function Battle() {
             Battle cancelled — amounts refunded.
           </div>
         )}
-        {c.status === "expired" && (
-          <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-sm font-bold text-slate-600">
-            Battle expired — amount refunded.
-          </div>
-        )}
-        {c.status === "cancel_requested" && (
-          <div className="rounded-2xl border border-orange-200 bg-orange-50 px-4 py-3.5 text-sm font-bold text-orange-700">
-            Cancellation requested — an admin will review it.
-          </div>
-        )}
-        {c.conflict && (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3.5 text-sm font-bold text-rose-700">
-            ⚠️ Conflict reported! Admin is reviewing proof screenshots.
-          </div>
-        )}
 
-        {/* Waiting / Open Battle State */}
+        {/* Open State (Searching Opponent - Wallet Not Deducted Yet) */}
         {c.status === "open" && (
-          <Panel title={inBattle ? "Waiting for Opponent" : "Open Battle"}>
+          <Panel title={inBattle ? "Searching Opponent..." : "Open Battle"}>
             {inBattle ? (
               <div className="space-y-3">
                 <p className="rounded-xl bg-indigo-50 px-3 py-2.5 text-xs font-bold text-indigo-700">
-                  No amount is deducted yet. Your {formatPaise(c.stake)} is locked only when you accept an opponent.
+                  Waiting for an opponent to join. No amount is deducted from your wallet yet.
                 </p>
                 <Button variant="ghost" className="w-full text-rose-600 font-bold" onClick={() => cancelBattle(c.id)} loading={busy === "cancel"}>
                   Cancel Battle
@@ -331,7 +321,7 @@ export default function Battle() {
             ) : (
               <div className="space-y-3">
                 <p className="text-xs font-semibold text-slate-500">
-                  Joining sends a request — {formatPaise(c.stake)} is only locked once the creator accepts.
+                  Send a join request to play this battle for {formatPaise(c.stake)}.
                 </p>
                 <Button className="w-full bg-emerald-600 text-white font-bold" onClick={() => join(c.id)} loading={busy === "join"}>
                   Join for {formatPaise(c.stake)}
@@ -341,30 +331,30 @@ export default function Battle() {
           </Panel>
         )}
 
-        {/* Join request — creator accepts to start */}
+        {/* Join Request Received (Creator decides to Start / Reject -> Deducts Amount on Start) */}
         {c.status === "join_requested" && (
-          <Panel title={isCreator ? "Opponent Found" : "Join Requested"}>
+          <Panel title={isCreator ? "Opponent Found!" : "Join Requested"}>
             {isCreator ? (
               <div className="space-y-3">
                 <p className="rounded-xl bg-indigo-50 px-3 py-2.5 text-xs font-bold text-indigo-700">
-                  Accept to start the match — both players' {formatPaise(c.stake)} amount is locked at that moment.
+                  Click 'Start' to accept and deduct {formatPaise(c.stake)} from both wallets to start the match.
                 </p>
                 <Button className="w-full bg-emerald-600 text-white font-bold" onClick={() => accept(c.id)} loading={busy === "accept"} disabled={busy === "accept"}>
-                  Accept &amp; Start
+                  Start Battle
                 </Button>
                 <Button variant="ghost" className="w-full text-rose-600 font-bold" onClick={() => rejectJoin(c.id)} loading={busy === "reject"}>
-                  Decline
+                  Reject Request
                 </Button>
               </div>
             ) : (
               <p className="rounded-xl bg-amber-50 px-3 py-2.5 text-xs font-bold text-amber-700">
-                Waiting for the creator to accept…
+                Waiting for the creator to accept and start…
               </p>
             )}
           </Panel>
         )}
 
-        {/* Room Code */}
+        {/* Room Code Section */}
         {(c.status === "running" || c.status === "room_submitted" || c.status === "result_submitted") && inBattle && (
           <Panel title="Room Code">
             {c.roomCode ? (
@@ -373,7 +363,7 @@ export default function Battle() {
                   <p className="text-[10px] font-bold uppercase tracking-wider text-amber-800">Ludo King Room Code</p>
                   <p className="font-mono text-lg font-black tracking-widest text-slate-900">{c.roomCode}</p>
                 </div>
-                <Button variant="ghost" onClick={() => { navigator.clipboard?.writeText(c.roomCode); toast.success("Code copied!"); }}>
+                <Button variant="ghost" onClick={() => { navigator.clipboard?.writeText(c.roomCode); }}>
                   Copy Code
                 </Button>
               </div>
@@ -405,7 +395,6 @@ export default function Battle() {
             <li>Both players must join the same Ludo King room with the code above.</li>
             <li>Do not leave a running match — leaving before it ends counts as a loss.</li>
             <li>Only a win claim needs a screenshot of the final result; a loss needs no proof.</li>
-            <li>Any dispute is reviewed by an admin and settled shortly.</li>
             <li>Play fair — cheating leads to a penalty and account suspension.</li>
           </ul>
         </Panel>
@@ -474,7 +463,7 @@ export default function Battle() {
 
         {inBattle && myReport && resultOpen && (
           <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3.5 text-sm font-bold text-amber-700">
-            Your result is submitted — waiting for the other player / admin.
+            Your result is submitted — waiting for opponent / admin.
           </div>
         )}
 
@@ -604,9 +593,9 @@ export default function Battle() {
   );
 }
 
-/** one side of the battle header — avatar (real or generated) + name */
+/** One side of the battle header — avatar + name */
 function PlayerHead({ player }) {
-  const name = player?.name || "Waiting…";
+  const name = player?.name || "Searching…";
   return (
     <div className="flex w-24 flex-col items-center gap-1">
       <div className="h-14 w-14 overflow-hidden rounded-full bg-slate-700 ring-2 ring-white/20">
