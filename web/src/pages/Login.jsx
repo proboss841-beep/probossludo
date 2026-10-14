@@ -31,7 +31,6 @@ export default function Login() {
       const result = await sendOtp(parsed.data);
       if (result.devOtp) {
         setDevOtp(result.devOtp);
-        toast.info(`Local OTP: ${result.devOtp}`);
       } else {
         toast.success("OTP sent");
       }

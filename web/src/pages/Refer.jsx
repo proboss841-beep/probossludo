@@ -32,7 +32,18 @@ export default function Refer() {
   }
 
   const shareText = encodeURIComponent(
-    `Play Ludo and win real cash! 🎲💰 Use my referral code *${code}* to sign up.\nJoin now: ${link}`
+    `Play On *Proboss Ludo* 🎲💰
+लूडो खेल कर या दोस्तों को शेयर कर के पैसा जीतो और तुरंत अपने Bank या UPI में ट्रांसफर कर सकते है।
+
+*Auto Deposit & Auto Withdrawal*
+Instant Withdrawal Via UPI/Bank/Wallet
+Net Commission *5% Only*
+Referral commission *3%*
+*100%* भरोसेमंद प्लेटफार्म
+*24x7 Live Chat & Call Support*
+
+Use my referral code *${code}* to sign up.
+Join now: ${link}`
   );
 
   if (referrals.isLoading) {

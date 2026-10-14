@@ -50,6 +50,7 @@ export async function listOpen(req, res) {
   const page = Math.max(1, Number(req.query.page) || 1);
   const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 12));
   const { items, total } = await contestService.listOpenContests({ page, limit });
+  await Contest.populate(items, { path: "players.userId", select: "name" });
   res.json({ items: items.map((c) => contestDto(c, { userId: req.user.id })), total, page, limit });
 }
 

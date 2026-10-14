@@ -14,6 +14,12 @@ const AMOUNT_STEP = 50;
 
 const ACTIVE_STATUSES = ["join_requested", "running", "room_submitted", "result_submitted", "cancel_requested"];
 const RUNNING_STATUSES = ["running", "room_submitted", "result_submitted", "cancel_requested"];
+const DEMO_PLAYER_NAMES = [
+  "Aarav", "Aanya", "Advait", "Anaya", "Arjun", "Diya", "Ishaan", "Isha", "Kabir", "Kiara",
+  "Krish", "Meera", "Neel", "Pari", "Reyansh", "Riya", "Saanvi", "Shaurya", "Tara", "Vihaan",
+  "Zara", "Dev", "Myra", "Rohan", "Nisha", "Veer", "Anika", "Yash", "Kavya", "Om",
+];
+const DEMO_STAKES_RUPEES = [50, 100, 150, 200, 250, 300, 500, 750, 1000, 1500, 2000, 2500, 5000];
 
 const creatorOf = (c) => c?.players?.find((p) => p.seat === 1) || null;
 const opponentOf = (c) => c?.players?.find((p) => p.seat === 2) || null;
@@ -26,6 +32,14 @@ export default function Play() {
 
   const [betAmount, setBetAmount] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
+  const [demoHour, setDemoHour] = useState(() => Math.floor(Date.now() / 3_600_000));
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setDemoHour(Math.floor(Date.now() / 3_600_000));
+    }, 60_000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   const open = useQuery({
     queryKey: ["contests", "open"],
@@ -112,6 +126,7 @@ export default function Play() {
     });
     return real;
   }, [myBattles]);
+  const demoBattles = useMemo(() => createDemoBattles(demoHour), [demoHour]);
 
   const previewPaise = useMemo(() => {
     const amt = Number(betAmount);
@@ -375,6 +390,16 @@ export default function Play() {
               onClick={() => navigate(`/battle/${c.id}`)}
             />
           ))}
+
+          <section aria-label="Fictional demo battles" className="mt-1 space-y-2">
+            <div className="rounded-xl border border-amber-300/60 bg-amber-50 px-3 py-2.5 text-center">
+              <p className="text-[11px] font-black uppercase tracking-wide text-amber-900">Demo activity · fictional matches</p>
+              <p className="mt-0.5 text-[10px] font-semibold text-amber-800">
+                These sample players and amounts are not real or live battles. Examples refresh hourly.
+              </p>
+            </div>
+            {demoBattles.map((battle) => <DemoMatchCard key={battle.id} battle={battle} />)}
+          </section>
         </div>
       </div>
     </div>
@@ -494,6 +519,43 @@ function MatchCard({ battle, onClick }) {
   );
 }
 
+function DemoMatchCard({ battle }) {
+  return (
+    <article className="overflow-hidden rounded-2xl border border-dashed border-amber-300/70 bg-[#1a082a] shadow-[0_0_12px_rgba(244,20,104,.08)]">
+      <div className="flex items-center justify-between gap-2 border-b border-[#f41468]/30 bg-[#321043] px-3 py-1.5">
+        <DemoAmount label="Playing For" value={battle.stake} />
+        <DemoAmount label="Prize" value={battle.prize} />
+        <span className="shrink-0 rounded-full bg-amber-300 px-2 py-1 text-[9px] font-black uppercase tracking-wide text-amber-950">Demo</span>
+      </div>
+      <div className="flex items-center justify-between gap-2 bg-[#1a082a] px-8 py-2.5">
+        <DemoPlayer name={battle.players[0]} />
+        <span aria-hidden="true" className="rounded-full bg-white/10 px-2 py-1 text-[10px] font-black text-white/70">VS</span>
+        <DemoPlayer name={battle.players[1]} />
+      </div>
+    </article>
+  );
+}
+
+function DemoAmount({ label, value }) {
+  return (
+    <div className="flex min-w-0 items-center gap-1">
+      <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wide text-white/70">{label}</span>
+      <span className="truncate text-[11px] font-black text-white">{formatPaise(value, { withSymbol: false })}</span>
+    </div>
+  );
+}
+
+function DemoPlayer({ name }) {
+  return (
+    <div className="flex min-w-0 flex-col items-center gap-1">
+      <div aria-hidden="true" className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-xs font-black text-white ring-2 ring-white/20">
+        {name.slice(0, 1)}
+      </div>
+      <p className="w-full truncate text-center text-[10px] font-bold text-white">{name}</p>
+    </div>
+  );
+}
+
 function PlayerAvatar({ name }) {
   const safeName = String(name || "Player").trim() || "Player";
 
@@ -528,4 +590,32 @@ function LoadingIndicator({ label }) {
       {label && <p className="text-[10px] font-bold text-white/80">{label}</p>}
     </div>
   );
+}
+
+function createDemoBattles(hourSeed) {
+  let state = hourSeed >>> 0;
+  const random = () => {
+    state = (state + 0x6D2B79F5) | 0;
+    let value = state;
+    value = Math.imul(value ^ (value >>> 15), value | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    return ((value ^ (value >>> 14)) >>> 0) / 4_294_967_296;
+  };
+
+  const availableNames = [...DEMO_PLAYER_NAMES];
+  for (let index = availableNames.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(random() * (index + 1));
+    [availableNames[index], availableNames[swapIndex]] = [availableNames[swapIndex], availableNames[index]];
+  }
+
+  return Array.from({ length: 15 }, (_, index) => {
+    const stakeRupees = DEMO_STAKES_RUPEES[Math.floor(random() * DEMO_STAKES_RUPEES.length)];
+    const stake = rupeesToPaise(stakeRupees);
+    return {
+      id: `demo-${hourSeed}-${index}`,
+      stake,
+      prize: computePrize(stake).prizePaise,
+      players: [availableNames[index * 2], availableNames[index * 2 + 1]],
+    };
+  });
 }
