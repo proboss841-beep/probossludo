@@ -1,6 +1,6 @@
 {
   "installCommand": "npm install",
-  "buildCommand": "npm run build --workspace=@lpludo/web",
+  "buildCommand": "npm --prefix web run build",
   "outputDirectory": "web/dist",
   "rewrites": [
     {
