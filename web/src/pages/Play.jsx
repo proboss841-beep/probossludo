@@ -391,13 +391,7 @@ export default function Play() {
             />
           ))}
 
-          <section aria-label="Fictional demo battles" className="mt-1 space-y-2">
-            <div className="rounded-xl border border-amber-300/60 bg-amber-50 px-3 py-2.5 text-center">
-              <p className="text-[11px] font-black uppercase tracking-wide text-amber-900">Demo activity · fictional matches</p>
-              <p className="mt-0.5 text-[10px] font-semibold text-amber-800">
-                These sample players and amounts are not real or live battles. Examples refresh hourly.
-              </p>
-            </div>
+          <section aria-label="Fictional demo battles" className="mt-1 space-y-3">
             {demoBattles.map((battle) => <DemoMatchCard key={battle.id} battle={battle} />)}
           </section>
         </div>
@@ -521,38 +515,30 @@ function MatchCard({ battle, onClick }) {
 
 function DemoMatchCard({ battle }) {
   return (
-    <article className="overflow-hidden rounded-2xl border border-dashed border-amber-300/70 bg-[#1a082a] shadow-[0_0_12px_rgba(244,20,104,.08)]">
+    <article className="overflow-hidden rounded-2xl border border-[#f41468]/60 bg-[#1a082a] shadow-[0_0_14px_rgba(244,20,104,.12)]">
       <div className="flex items-center justify-between gap-2 border-b border-[#f41468]/30 bg-[#321043] px-3 py-1.5">
-        <DemoAmount label="Playing For" value={battle.stake} />
-        <DemoAmount label="Prize" value={battle.prize} />
-        <span className="shrink-0 rounded-full bg-amber-300 px-2 py-1 text-[9px] font-black uppercase tracking-wide text-amber-950">Demo</span>
+        <div className="flex min-w-0 items-center gap-1.5">
+          <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-white/75">Playing For</span>
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-300 via-brand-500 to-[#C98509] text-[10px] font-black text-white shadow-sm">₹</span>
+          <span className="truncate text-xs font-black text-white">{formatPaise(battle.stake, { withSymbol: false })}</span>
+        </div>
+        <div className="flex min-w-0 items-center gap-1.5">
+          <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-white/75">Prize</span>
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-300 via-brand-500 to-[#C98509] text-[10px] font-black text-white shadow-sm">₹</span>
+          <span className="truncate text-xs font-black text-white">{formatPaise(battle.prize, { withSymbol: false })}</span>
+        </div>
+        <span aria-label="Demo battle, not a real match" className="shrink-0 rounded-full bg-amber-300 px-2 py-1 text-[9px] font-black uppercase tracking-wide text-amber-950">
+          Demo
+        </span>
       </div>
       <div className="flex items-center justify-between gap-2 bg-[#1a082a] px-8 py-2.5">
-        <DemoPlayer name={battle.players[0]} />
-        <span aria-hidden="true" className="rounded-full bg-white/10 px-2 py-1 text-[10px] font-black text-white/70">VS</span>
-        <DemoPlayer name={battle.players[1]} />
+        <PlayerAvatar name={battle.players[0]} />
+        <div aria-hidden="true" className="flex shrink-0 items-center justify-center">
+          <span className="rounded-full bg-gradient-to-r from-brand-300/20 via-brand-500/20 to-[#C98509]/20 px-3 py-1 text-xs font-black text-brand-300 ring-1 ring-brand-300/25">VS</span>
+        </div>
+        <PlayerAvatar name={battle.players[1]} />
       </div>
     </article>
-  );
-}
-
-function DemoAmount({ label, value }) {
-  return (
-    <div className="flex min-w-0 items-center gap-1">
-      <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wide text-white/70">{label}</span>
-      <span className="truncate text-[11px] font-black text-white">{formatPaise(value, { withSymbol: false })}</span>
-    </div>
-  );
-}
-
-function DemoPlayer({ name }) {
-  return (
-    <div className="flex min-w-0 flex-col items-center gap-1">
-      <div aria-hidden="true" className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-xs font-black text-white ring-2 ring-white/20">
-        {name.slice(0, 1)}
-      </div>
-      <p className="w-full truncate text-center text-[10px] font-bold text-white">{name}</p>
-    </div>
   );
 }
 
