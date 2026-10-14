@@ -130,6 +130,7 @@ export async function createContest({ userId, stakePaise, ip }) {
 
   return withLock(`wallet:${userId}`, () =>
     withTransaction(async (session) => {
+      await walletService.assertAvailable(userId, stakePaise, { session });
       const [contest] = await Contest.create(
         [{
           stake: stakePaise,

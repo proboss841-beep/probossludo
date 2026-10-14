@@ -1,11 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api.js";
-import { socket } from "../lib/socket.js";
-import { Money, Panel, StatusBadge } from "../components/ui.jsx";
 
-const LIVE_STATUSES = ["open", "running", "room_submitted", "result_submitted", "cancel_requested"];
 const PROMO_POSTERS = [
   { src: "/poster-support.png", alt: "Fast withdrawals and 24/7 support service" },
   { src: "/poster-trusted.png", alt: "Trusted platform — safe, secure, reliable" },
@@ -125,10 +122,8 @@ function GameCard({ title, image, onPlay, href, disabled = false, className = ""
 }
 
 export default function Home() {
-  const qc = useQueryClient();
   const navigate = useNavigate();
 
-  const mine = useQuery({ queryKey: ["contests", "mine"], queryFn: () => api("/contests/mine") });
   const supportSettings = useQuery({
     queryKey: ["settings", "public"],
     queryFn: () => api("/settings/public"),
@@ -139,26 +134,6 @@ export default function Home() {
   const supportWhatsappUrl = supportNumber
     ? `https://wa.me/${supportNumber}?text=${supportMessage}`
     : `https://wa.me/?text=${supportMessage}`;
-
-  useEffect(() => {
-    if (!socket.connected) socket.connect();
-    function resubscribe() {
-      socket.emit("subscribe:contests", {}, () => {});
-    }
-    socket.on("connect", resubscribe);
-    socket.on("contest:list-changed", () => {
-      qc.invalidateQueries({ queryKey: ["contests"] });
-    });
-    socket.on("wallet:updated", (view) => qc.setQueryData(["wallet"], view));
-    resubscribe();
-    return () => {
-      socket.off("connect");
-      socket.off("contest:list-changed");
-      socket.off("wallet:updated");
-    };
-  }, [qc]);
-
-  const liveBattles = (mine.data?.items || []).filter((c) => LIVE_STATUSES.includes(c.status));
 
   return (
     <div className="flex flex-col gap-4">
@@ -215,26 +190,6 @@ export default function Home() {
       </div>
 
       <PosterSlider />
-
-      {liveBattles.length > 0 && (
-        <Panel title="Your live battles" className="border-brand-500/40 bg-brand-500/5">
-          <div className="flex flex-col divide-y divide-gray-100">
-            {liveBattles.map((c) => (
-              <Link
-                key={c.id}
-                to={`/battle/${c.id}`}
-                className="flex items-center justify-between py-2.5 text-sm font-bold text-slate-700"
-              >
-                <span className="flex items-center gap-2">
-                  <span className="h-2 w-2 animate-pulse rounded-full bg-brand-500" />
-                  Amount <Money paise={c.stake} />
-                </span>
-                <StatusBadge status={c.status} />
-              </Link>
-            ))}
-          </div>
-        </Panel>
-      )}
     </div>
   );
 }

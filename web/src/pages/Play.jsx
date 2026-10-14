@@ -14,8 +14,6 @@ const AMOUNT_STEP = 50;
 
 const ACTIVE_STATUSES = ["join_requested", "running", "room_submitted", "result_submitted", "cancel_requested"];
 const RUNNING_STATUSES = ["running", "room_submitted", "result_submitted", "cancel_requested"];
-const DEMO_NAME_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ";
-const DEMO_STAKES_RUPEES = [50, 100, 150, 200, 250, 300, 500, 750, 1000, 1500, 2000, 2500, 5000];
 
 const creatorOf = (c) => c?.players?.find((p) => p.seat === 1) || null;
 const opponentOf = (c) => c?.players?.find((p) => p.seat === 2) || null;
@@ -28,14 +26,7 @@ export default function Play() {
 
   const [betAmount, setBetAmount] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
-  const [demoHour, setDemoHour] = useState(() => Math.floor(Date.now() / 3_600_000));
-
-  useEffect(() => {
-    const interval = window.setInterval(() => {
-      setDemoHour(Math.floor(Date.now() / 3_600_000));
-    }, 60_000);
-    return () => window.clearInterval(interval);
-  }, []);
+  const [createError, setCreateError] = useState("");
 
   const open = useQuery({
     queryKey: ["contests", "open"],
@@ -122,8 +113,6 @@ export default function Play() {
     });
     return real;
   }, [myBattles]);
-  const demoBattles = useMemo(() => createDemoBattles(demoHour), [demoHour]);
-
   const previewPaise = useMemo(() => {
     const amt = Number(betAmount);
     if (!Number.isFinite(amt) || amt < MIN_AMOUNT || amt > MAX_AMOUNT || amt % AMOUNT_STEP !== 0) return null;
@@ -139,21 +128,22 @@ export default function Play() {
   function validateAmount() {
     const amt = Number(betAmount);
     if (!amt || amt < MIN_AMOUNT || amt > MAX_AMOUNT || amt % AMOUNT_STEP !== 0) {
-      toast.error("Amount must be in multiples of 50");
+      setCreateError(`Enter an amount between ₹${MIN_AMOUNT} and ₹${MAX_AMOUNT.toLocaleString("en-IN")} in multiples of ₹${AMOUNT_STEP}.`);
       return false;
     }
     return true;
   }
 
   async function handleCreate() {
+    setCreateError("");
     if (myActiveBattle) {
-      toast.error("You are already in a match");
+      setCreateError("You are already in a match.");
       return;
     }
     if (!validateAmount()) return;
 
     if (mySearchingBattles.length >= MAX_SEARCHING_BATTLES) {
-      toast.error("You can keep only 2 open battles");
+      setCreateError("You can keep only 2 open battles. Cancel one first.");
       return;
     }
 
@@ -172,7 +162,11 @@ export default function Play() {
     } catch (err) {
       const msg = String(err?.message || "");
       if (/already|game|match/i.test(msg)) {
-        toast.error("You are already in a match");
+        setCreateError("You are already in a match.");
+      } else if (/insufficient|balance|fund/i.test(msg)) {
+        setCreateError(`Insufficient available wallet balance for ₹${amt}. Add funds or choose a lower amount.`);
+      } else {
+        setCreateError(msg || "Could not create battle.");
       }
     } finally {
       setActionLoading(false);
@@ -325,7 +319,10 @@ export default function Play() {
             min={MIN_AMOUNT}
             max={MAX_AMOUNT}
             step={AMOUNT_STEP}
-            onChange={(e) => setBetAmount(e.target.value)}
+            onChange={(e) => {
+              setBetAmount(e.target.value);
+              setCreateError("");
+            }}
           />
 
           <button
@@ -337,6 +334,8 @@ export default function Play() {
             {actionLoading ? "…" : "Set"}
           </button>
         </div>
+
+        {createError && <p role="alert" className="px-3 pt-2 text-xs font-bold text-rose-600">{createError}</p>}
 
         <p className="px-3 pb-1 pt-2 text-[11px] font-semibold text-slate-500">
           Min ₹{MIN_AMOUNT} · Max ₹{MAX_AMOUNT.toLocaleString("en-IN")} · multiples of ₹{AMOUNT_STEP}
@@ -387,7 +386,6 @@ export default function Play() {
             />
           ))}
 
-          {demoBattles.map((battle) => <DemoMatchCard key={battle.id} battle={battle} />)}
         </div>
       </div>
     </div>
@@ -507,35 +505,6 @@ function MatchCard({ battle, onClick }) {
   );
 }
 
-function DemoMatchCard({ battle }) {
-  return (
-    <article className="overflow-hidden rounded-2xl border border-[#f41468]/60 bg-[#1a082a] shadow-[0_0_14px_rgba(244,20,104,.12)]">
-      <div className="flex items-center justify-between gap-2 border-b border-[#f41468]/30 bg-[#321043] px-3 py-1.5">
-        <div className="flex min-w-0 items-center gap-1.5">
-          <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-white/75">Playing For</span>
-          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-300 via-brand-500 to-[#C98509] text-[10px] font-black text-white shadow-sm">₹</span>
-          <span className="truncate text-xs font-black text-white">{formatPaise(battle.stake, { withSymbol: false })}</span>
-        </div>
-        <div className="flex min-w-0 items-center gap-1.5">
-          <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-white/75">Prize</span>
-          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-300 via-brand-500 to-[#C98509] text-[10px] font-black text-white shadow-sm">₹</span>
-          <span className="truncate text-xs font-black text-white">{formatPaise(battle.prize, { withSymbol: false })}</span>
-        </div>
-        <span aria-label="Sample battle, not a real match" className="shrink-0 rounded-full bg-amber-300 px-2 py-1 text-[9px] font-black uppercase tracking-wide text-amber-950">
-          Sample
-        </span>
-      </div>
-      <div className="flex items-center justify-between gap-2 bg-[#1a082a] px-8 py-2.5">
-        <PlayerAvatar name={battle.players[0]} />
-        <div aria-hidden="true" className="flex shrink-0 items-center justify-center">
-          <img src="/battle-vs.png" alt="" className="h-14 w-14 object-contain drop-shadow-[0_0_8px_rgba(244,20,104,.2)]" />
-        </div>
-        <PlayerAvatar name={battle.players[1]} />
-      </div>
-    </article>
-  );
-}
-
 function PlayerAvatar({ name }) {
   const safeName = String(name || "Player").trim() || "Player";
 
@@ -570,36 +539,4 @@ function LoadingIndicator({ label }) {
       {label && <p className="text-[10px] font-bold text-white/80">{label}</p>}
     </div>
   );
-}
-
-function createDemoBattles(hourSeed) {
-  let state = hourSeed >>> 0;
-  const random = () => {
-    state = (state + 0x6D2B79F5) | 0;
-    let value = state;
-    value = Math.imul(value ^ (value >>> 15), value | 1);
-    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
-    return ((value ^ (value >>> 14)) >>> 0) / 4_294_967_296;
-  };
-
-  const availableNames = new Set();
-  while (availableNames.size < 30) {
-    let name = "";
-    for (let index = 0; index < 5; index += 1) {
-      name += DEMO_NAME_ALPHABET[Math.floor(random() * DEMO_NAME_ALPHABET.length)];
-    }
-    availableNames.add(name);
-  }
-  const names = [...availableNames];
-
-  return Array.from({ length: 15 }, (_, index) => {
-    const stakeRupees = DEMO_STAKES_RUPEES[Math.floor(random() * DEMO_STAKES_RUPEES.length)];
-    const stake = rupeesToPaise(stakeRupees);
-    return {
-      id: `demo-${hourSeed}-${index}`,
-      stake,
-      prize: computePrize(stake).prizePaise,
-      players: [names[index * 2], names[index * 2 + 1]],
-    };
-  });
 }

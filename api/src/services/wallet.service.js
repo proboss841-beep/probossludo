@@ -188,9 +188,9 @@ export async function refundWithdrawal({ userId, withdrawalId, amountPaise, acto
   return session ? run(session) : lockedFor(userId, run);
 }
 
-/** Guard used by battle join: must have enough AVAILABLE (not held) money. */
-export async function assertAvailable(userId, amountPaise) {
-  const w = await getOrCreateWallet(userId);
+/** Guard battle creation and joining against the wallet snapshot being used. */
+export async function assertAvailable(userId, amountPaise, { session } = {}) {
+  const w = await getOrCreateWallet(userId, { session });
   if (w.totalPaise - w.heldPaise < amountPaise) {
     throw new ForbiddenError("Insufficient balance for this stake");
   }
