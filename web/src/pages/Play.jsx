@@ -395,9 +395,9 @@ function OpenCard({ battle, action, onCancel, cancelDisabled }) {
             title={battle.status === "join_requested" ? "Withdraw join request" : "Cancel open battle"}
             disabled={cancelDisabled}
             onClick={onCancel}
-            className="absolute right-2 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white text-[#f41468] shadow-md ring-2 ring-[#f41468]/40 transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-60"
+            className="absolute right-2 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-white text-[#f41468] shadow-md ring-1 ring-[#f41468]/40 transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-7 w-7" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-4 w-4" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round">
               <path d="m6 6 12 12M18 6 6 18" />
             </svg>
           </button>
