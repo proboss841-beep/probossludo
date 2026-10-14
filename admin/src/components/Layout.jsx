@@ -200,9 +200,9 @@ export default function Layout({ children, admin }) {
       >
         <div className="mb-3 flex items-center gap-2.5 border-b border-[#fbe3ee] px-2 pb-4">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#ec4899] to-[#db2777] text-sm font-black text-white shadow-[0_6px_16px_rgba(219,39,119,0.3)]">
-            LP
+            PB
           </span>
-          <h2 className="text-lg font-extrabold leading-tight text-[#2a1520]">LPLUDO Admin</h2>
+          <h2 className="text-lg font-extrabold leading-tight text-[#2a1520]">Proboss Admin</h2>
           <button
             type="button"
             onClick={close}

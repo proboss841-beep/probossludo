@@ -69,7 +69,7 @@ export async function startGatewayDeposit({ userId, phone, amountPaise }) {
       mobile,
       redirectUrl: `${env.PUBLIC_WEB_URL.replace(/\/+$/, "")}/wallet?deposit=${doc._id}`,
       remark1: `user:${userId}`,
-      remark2: "LPLUDO wallet deposit",
+      remark2: "Proboss wallet deposit",
     });
     doc.gateway.orderId = orderId;
     doc.gateway.paymentUrl = order.paymentUrl;

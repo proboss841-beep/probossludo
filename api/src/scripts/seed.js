@@ -53,7 +53,7 @@ export async function seed() {
   const settings = await getSettings();
   if (!settings.depositUpiId) {
     settings.depositUpiId = "lpludo@upi";
-    settings.depositUpiName = "LPLUDO";
+    settings.depositUpiName = "Proboss Ludo";
     await settings.save();
     l.info({ upiId: settings.depositUpiId }, "payment settings initialised");
   }
