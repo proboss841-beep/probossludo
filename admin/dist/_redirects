@@ -1,3 +1,0 @@
-# SPA fallback for static hosts (Cloudflare Pages, Netlify, nginx):
-# deep links like /deposits or /users must serve index.html, not a 404.
-/*    /index.html   200

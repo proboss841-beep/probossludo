@@ -1,0 +1,1 @@
+- Prefers configuration values presented in a plain list or KEY=VALUE format for easy copying, rather than elaborate grouped documentation. Confidence: 0.8
