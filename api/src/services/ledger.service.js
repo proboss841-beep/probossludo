@@ -1,6 +1,6 @@
 import { LedgerEntry } from "../db/models/ledgerEntry.model.js";
 import { Wallet } from "../db/models/wallet.model.js";
-import { WalletError } from "../../../../packages/shared/src/index.js";
+import { WalletError } from "../lib/shared/index.js";
 import { log } from "../config/logger.js";
 
 const l = log("ledger");

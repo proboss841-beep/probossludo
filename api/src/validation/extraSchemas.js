@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { objectIdSchema, phoneSchema } from "../../../../packages/shared/src/schemas/index.js";
+import { objectIdSchema, phoneSchema } from "../lib/shared/schemas/index.js";
 
 /** admin / agent account management (superadmin only) */
 export const adminAccountCreateSchema = z.object({
@@ -98,4 +98,4 @@ export const adminSettingsSchema = z.object({
     .optional(),
 });
 
-export { validate } from "../../../../packages/shared/src/schemas/index.js";
+export { validate } from "../lib/shared/schemas/index.js";

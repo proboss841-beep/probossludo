@@ -1,7 +1,7 @@
 import { randomBytes, randomInt } from "crypto";
 import { env, isTest } from "../config/env.js";
 import { log } from "../config/logger.js";
-import { AppError, BadRequestError, TooManyRequestsError } from "../../../../packages/shared/src/index.js";
+import { AppError, BadRequestError, TooManyRequestsError } from "../lib/shared/index.js";
 
 const l = log("otp");
 

@@ -6,10 +6,10 @@ import { WithdrawalRequest } from "../db/models/withdrawalRequest.model.js";
 import { getSettings } from "../db/models/settings.model.js";
 import {
   BadRequestError, ForbiddenError, ConflictError, NotFoundError,
-} from "../../../../packages/shared/src/index.js";
-import { validate } from "../../../../packages/shared/src/schemas/index.js";
+} from "../lib/shared/index.js";
+import { validate } from "../lib/shared/schemas/index.js";
 import { depositClaimSchema, gatewayDepositSchema, withdrawRequestSchema, referralRedeemSchema } from "../validation/extraSchemas.js";
-import { paginationSchema } from "../../../../packages/shared/src/schemas/index.js";
+import { paginationSchema } from "../lib/shared/schemas/index.js";
 import { normalizeUtr } from "../utils/utr.js";
 import { emitAdminRefresh, emitWalletUpdate } from "../realtime/io.js";
 

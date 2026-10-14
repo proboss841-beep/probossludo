@@ -6,7 +6,7 @@ import {
   computePrize, computeReferralCommission, isTransitionAllowed, IllegalTransitionError,
   ConflictError, NotFoundError, ForbiddenError, BadRequestError, isValidStake,
   TERMINAL_STATES,
-} from "../../../../packages/shared/src/index.js";
+} from "../lib/shared/index.js";
 import * as walletService from "./wallet.service.js";
 import { emitContestUpdate, emitWalletUpdate } from "../realtime/io.js";
 import { log } from "../config/logger.js";

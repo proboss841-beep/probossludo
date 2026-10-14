@@ -1,8 +1,8 @@
 import mongoose from "mongoose";
 import { User } from "../db/models/user.model.js";
-import { validate } from "../../../../packages/shared/src/schemas/index.js";
-import { kycSubmitSchema, updateProfileSchema } from "../../../../packages/shared/src/schemas/index.js";
-import { BadRequestError, ConflictError, NotFoundError } from "../../../../packages/shared/src/index.js";
+import { validate } from "../lib/shared/schemas/index.js";
+import { kycSubmitSchema, updateProfileSchema } from "../lib/shared/schemas/index.js";
+import { BadRequestError, ConflictError, NotFoundError } from "../lib/shared/index.js";
 import { Wallet } from "../db/models/wallet.model.js";
 import { LedgerEntry } from "../db/models/ledgerEntry.model.js";
 import { listLedger } from "../services/ledger.service.js";

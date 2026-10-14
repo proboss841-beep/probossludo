@@ -1,12 +1,12 @@
 import { env, corsOrigins } from "../config/env.js";
-import { validate } from "../../../../packages/shared/src/schemas/index.js";
-import { sendOtpSchema, verifyOtpSchema } from "../../../../packages/shared/src/schemas/index.js";
+import { validate } from "../lib/shared/schemas/index.js";
+import { sendOtpSchema, verifyOtpSchema } from "../lib/shared/schemas/index.js";
 import * as otpService from "../services/otp.service.js";
 import {
   signAccessToken, signRefreshToken, verifyRefreshToken,
   upsertPlayer, invalidateAllSessions, getAuthUser,
 } from "../services/auth.service.js";
-import { UnauthorizedError, BadRequestError } from "../../../../packages/shared/src/index.js";
+import { UnauthorizedError, BadRequestError } from "../lib/shared/index.js";
 import { Wallet } from "../db/models/wallet.model.js";
 import { log } from "../config/logger.js";
 

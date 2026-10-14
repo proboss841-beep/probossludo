@@ -1,4 +1,4 @@
-import { AppError } from "../../../../packages/shared/src/index.js";
+import { AppError } from "../lib/shared/index.js";
 import { env } from "../config/env.js";
 import { redis } from "../db/redis.js";
 import { log } from "../config/logger.js";

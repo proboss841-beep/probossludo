@@ -4,8 +4,8 @@ import { requireAuth } from "../middleware/auth.js";
 import { apiLimiter } from "../middleware/rateLimit.js";
 import { walletView } from "../services/wallet.service.js";
 import { listLedger } from "../services/ledger.service.js";
-import { validate } from "../../../../packages/shared/src/schemas/index.js";
-import { paginationSchema } from "../../../../packages/shared/src/schemas/index.js";
+import { validate } from "../lib/shared/schemas/index.js";
+import { paginationSchema } from "../lib/shared/schemas/index.js";
 
 const router = Router();
 

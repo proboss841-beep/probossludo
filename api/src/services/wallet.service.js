@@ -4,7 +4,7 @@ import { applyLedger } from "./ledger.service.js";
 import { withLock } from "../db/redis.js";
 import { Wallet } from "../db/models/wallet.model.js";
 import { LedgerEntry } from "../db/models/ledgerEntry.model.js";
-import { ForbiddenError } from "../../../../packages/shared/src/index.js";
+import { ForbiddenError } from "../lib/shared/index.js";
 
 /**
  * High-level money operations. Each one:

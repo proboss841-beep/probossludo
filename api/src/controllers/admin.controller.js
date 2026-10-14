@@ -7,7 +7,7 @@ import { WithdrawalRequest } from "../db/models/withdrawalRequest.model.js";
 import { LedgerEntry } from "../db/models/ledgerEntry.model.js";
 import { AuditLog } from "../db/models/auditLog.model.js";
 import { getSettings } from "../db/models/settings.model.js";
-import { adminLoginSchema, adminSettleSchema, adminReviewSchema } from "../../../../packages/shared/src/schemas/index.js";
+import { adminLoginSchema, adminSettleSchema, adminReviewSchema } from "../lib/shared/schemas/index.js";
 import {
   validate, adminUserActionSchema, adminKycReviewSchema, adminSettingsSchema,
   adminAccountCreateSchema, adminAccountUpdateSchema, adminAdjustmentSchema,
@@ -19,8 +19,8 @@ import { checkPassword, hashPassword } from "../services/auth.service.js";
 import { issueTokens } from "../controllers/auth.controller.js";
 import { writeAudit } from "../services/audit.service.js";
 import { emitToUser, emitAdminRefresh, emitContestUpdate, emitWalletUpdate } from "../realtime/io.js";
-import { UnauthorizedError, BadRequestError, NotFoundError, ConflictError, ForbiddenError } from "../../../../packages/shared/src/index.js";
-import { paginationSchema } from "../../../../packages/shared/src/schemas/index.js";
+import { UnauthorizedError, BadRequestError, NotFoundError, ConflictError, ForbiddenError } from "../lib/shared/index.js";
+import { paginationSchema } from "../lib/shared/schemas/index.js";
 import { log } from "../config/logger.js";
 
 const l = log("admin.controller");

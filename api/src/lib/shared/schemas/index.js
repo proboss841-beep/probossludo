@@ -1,0 +1,160 @@
+/**
+ * zod schemas shared by client (form validation) and server (request validation).
+ * One definition = no drift between what the UI checks and what the API trusts.
+ */
+import { z } from "zod";
+import { isValidStake } from "../prize.js";
+
+/** 10-digit Indian mobile, stored without +91. */
+export const phoneSchema = z
+  .string()
+  .trim()
+  .transform((v) => v.replace(/[\s-]/g, "").replace(/^\+?91(?=\d{10}$)/, ""))
+  .pipe(z.string().regex(/^[6-9]\d{9}$/, "Enter a valid 10-digit Indian mobile number"));
+
+export const sendOtpSchema = z.object({ phone: phoneSchema });
+
+/**
+ * First login creates the player — no `name` is collected anymore: the server
+ * assigns a unique 5-letter handle automatically (see auth.service.js).
+ */
+export const verifyOtpSchema = z.object({
+  phone: phoneSchema,
+  otp: z.string().trim().regex(/^\d{6}$/, "OTP must be 6 digits"),
+  referralCode: z.string().trim().max(16).optional(),
+});
+
+/** Auto-generated player handle: exactly 5 letters, no digits, no look-alikes. */
+export const PLAYER_NAME_LENGTH = 5;
+export const PLAYER_NAME_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+export const playerNameSchema = z
+  .string()
+  .trim()
+  .length(PLAYER_NAME_LENGTH, `Name must be exactly ${PLAYER_NAME_LENGTH} letters`)
+  .regex(new RegExp(`^[${PLAYER_NAME_ALPHABET}]+$`, "i"), "Name must contain only letters");
+
+/** Adda Ludo rules: ₹50 – ₹1,00,000, multiples of ₹50 (see prize.js). */
+export const stakeSchema = z
+  .number({ invalid_type_error: "Amount is required" })
+  .int()
+  .refine((v) => isValidStake(v), "Amount must be ₹50–₹1,00,000 in multiples of ₹50");
+
+export const createContestSchema = z.object({ stake: stakeSchema });
+
+export const objectIdSchema = z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid id");
+
+export const submitRoomSchema = z.object({
+  contestId: objectIdSchema,
+  roomCode: z.string().trim().regex(/^\d{8}$/, "Room code must be 8 digits"),
+});
+
+export const submitResultSchema = z.object({
+  contestId: objectIdSchema,
+  outcome: z.enum(["won", "lost", "cancel"]),
+  screenshotKeys: z.array(z.string().min(1).max(200)).max(4).default([]),
+});
+
+export const updateProfileSchema = z.object({
+  name: z.string().trim().min(2).max(40).optional(),
+  avatarUrl: z.string().url().max(300).optional(),
+  payoutUpi: z.string().trim().regex(/^[\w.-]{2,64}@[a-zA-Z]{2,32}$/, "Enter a valid UPI ID").optional(),
+});
+
+export const withdrawRequestSchema = z
+  .object({
+    amountPaise: z.number({ invalid_type_error: "Amount is required" }).int().min(20000, "Minimum withdrawal is ₹200"),
+    method: z.enum(["upi", "bank"]).default("upi"),
+    upiId: z.string().trim().regex(/^[\w.-]{2,64}@[a-zA-Z]{2,32}$/, "Enter a valid UPI ID").optional(),
+    bank: z
+      .object({
+        accountName: z.string().trim().min(2, "Enter the account holder name").max(80),
+        accountNumber: z.string().trim().regex(/^\d{6,20}$/, "Enter a valid account number"),
+        ifsc: z.string().trim().regex(/^[A-Z]{4}0[A-Z0-9]{6}$/, "Enter a valid IFSC code"),
+      })
+      .optional(),
+  })
+  .superRefine((d, ctx) => {
+    // reference rule: anything above ₹2000 must be paid to a bank account
+    if (d.amountPaise > 200000 && d.method !== "bank") {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["method"], message: "Withdrawals above ₹2000 must go to a bank account" });
+    }
+    if (d.method === "bank" && !d.bank) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["bank"], message: "Enter your bank details" });
+    }
+    if (d.method === "upi" && !d.upiId) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["upiId"], message: "Enter your UPI ID" });
+    }
+  });
+
+export const KYC_DOC_TYPES = ["aadhar", "pan"];
+
+/**
+ * KYC submission — full name, date of birth, one Aadhaar/PAN document number
+ * and both sides of the ID card. The number is checked against its document
+ * type (Aadhaar = 12 digits, PAN = ABCDE1234F) and the applicant must be 18+.
+ */
+export const kycSubmitSchema = z
+  .object({
+    holderName: z.string().trim().min(2, "Enter your full name").max(60),
+    dob: z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/, "Enter your date of birth"),
+    docType: z.enum(KYC_DOC_TYPES, { message: "Select Aadhaar or PAN" }),
+    docNumber: z.string().trim().min(4, "Enter the document number").max(20),
+    frontImageKey: z.string().min(1).max(200),
+    backImageKey: z.string().min(1).max(200),
+  })
+  .superRefine((d, ctx) => {
+    const value = d.docNumber.replace(/\s/g, "").toUpperCase();
+    if (d.docType === "aadhar" && !/^\d{12}$/.test(value)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["docNumber"], message: "Aadhaar number must be 12 digits" });
+    }
+    if (d.docType === "pan" && !/^[A-Z]{5}\d{4}[A-Z]$/.test(value)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["docNumber"], message: "Enter a valid PAN (e.g. ABCDE1234F)" });
+    }
+    const birth = new Date(d.dob);
+    if (Number.isNaN(birth.getTime())) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["dob"], message: "Enter a valid date of birth" });
+      return;
+    }
+    const now = new Date();
+    let age = now.getFullYear() - birth.getFullYear();
+    const month = now.getMonth() - birth.getMonth();
+    if (month < 0 || (month === 0 && now.getDate() < birth.getDate())) age -= 1;
+    if (age < 18) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["dob"], message: "You must be 18 or older to verify" });
+    }
+  });
+
+export const paginationSchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+
+export const adminSettleSchema = z.object({
+  contestId: objectIdSchema,
+  winnerUserId: objectIdSchema,
+  note: z.string().trim().max(300).optional(),
+});
+
+export const adminReviewSchema = z.object({
+  id: objectIdSchema,
+  action: z.enum(["approve", "reject"]),
+  note: z.string().trim().max(300).optional(),
+});
+
+/** Admin panel login — mobile number + password (no email flow). */
+export const adminLoginSchema = z.object({
+  phone: phoneSchema,
+  password: z.string().min(8, "Password must be at least 8 characters"),
+});
+
+/** helper used by routes: validate(req.body, schema) -> parsed data or ValidationError */
+export function validate(schema, data) {
+  const result = schema.safeParse(data);
+  if (!result.success) {
+    const err = new Error("validation");
+    err.isZodError = true;
+    err.zodError = result.error;
+    throw err;
+  }
+  return result.data;
+}

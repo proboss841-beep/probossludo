@@ -1,4 +1,4 @@
-import { formatPaise } from "../../../../utils/formatPaise.js";
+import { formatPaise } from "../lib/money.js";
 
 /**
  * Shared admin primitives — light rose theme matching the reference admin panel

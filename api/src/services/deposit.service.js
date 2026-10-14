@@ -1,5 +1,5 @@
-import { BadRequestError, ConflictError, NotFoundError } from "../../../../packages/shared/src/index.js";
-import { formatPaise } from "../../../../utils/formatPaise.js";
+import { BadRequestError, ConflictError, NotFoundError } from "../lib/shared/index.js";
+import { formatPaise } from "../lib/shared/index.js";
 import { env } from "../config/env.js";
 import { log } from "../config/logger.js";
 import { DepositRequest } from "../db/models/depositRequest.model.js";

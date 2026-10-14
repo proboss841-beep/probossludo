@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { CONTEST_STATES, TERMINAL_STATES, isTransitionAllowed, IllegalTransitionError } from "../../../../../packages/shared/src/index.js";
+import { CONTEST_STATES, TERMINAL_STATES, isTransitionAllowed, IllegalTransitionError } from "../../lib/shared/index.js";
 import { applyContestSchemaExtras } from "./contest.extras.js";
 
 /**

@@ -1,4 +1,4 @@
-import { ValidationError, NotFoundError, AppError, IllegalTransitionError, WalletError } from "../../../../packages/shared/src/index.js";
+import { ValidationError, NotFoundError, AppError, IllegalTransitionError, WalletError } from "../lib/shared/index.js";
 import { env, isProd } from "../config/env.js";
 import { logger } from "../config/logger.js";
 
