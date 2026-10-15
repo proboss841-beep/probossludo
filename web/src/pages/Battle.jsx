@@ -365,7 +365,7 @@ export default function Battle() {
               <div className="flex items-center justify-between rounded-xl border border-amber-200 bg-amber-50 p-3">
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-wider text-amber-800">Ludo King Room Code</p>
-                  <p className="font-mono text-lg font-black tracking-widest text-slate-900">{c.roomCode}</p>
+                  <p className="font-mono text-lg font-black tracking-widest text-black">{c.roomCode}</p>
                 </div>
                 <Button variant="ghost" onClick={() => { navigator.clipboard?.writeText(c.roomCode); }}>
                   Copy Code

@@ -187,7 +187,7 @@ export default function Matches() {
               <p className="flex items-center gap-1"><b>Status:</b> <Badge status={c.status} /></p>
               <p><b>Amount:</b> <Money paise={c.stake} /></p>
               <p><b>Prize:</b> <Money paise={c.settlement?.prizePaise ?? 0} /></p>
-              <p><b>Room code:</b> <span className="font-mono">{c.roomCode || "—"}</span></p>
+              <p><b>Room code:</b> <span className="font-mono text-black">{c.roomCode || "—"}</span></p>
               <p><b>Winner:</b> {c.winner?.name || "—"}</p>
               <p><b>Created:</b> {c.createdAt ? new Date(c.createdAt).toLocaleString("en-IN") : "—"}</p>
               <p><b>Settled by:</b> {c.settlement?.settledBy || "—"}</p>
