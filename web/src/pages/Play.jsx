@@ -33,7 +33,6 @@ export default function Play() {
   const [actionLoading, setActionLoading] = useState(false);
   const [createError, setCreateError] = useState("");
   const [demoHour, setDemoHour] = useState(() => Math.floor(Date.now() / 3_600_000));
-  const [demoNotice, setDemoNotice] = useState("");
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -41,12 +40,6 @@ export default function Play() {
     }, 60_000);
     return () => window.clearInterval(interval);
   }, []);
-
-  useEffect(() => {
-    if (!demoNotice) return undefined;
-    const timeout = window.setTimeout(() => setDemoNotice(""), 3_500);
-    return () => window.clearTimeout(timeout);
-  }, [demoNotice]);
 
   const open = useQuery({
     queryKey: ["contests", "open"],
@@ -294,15 +287,6 @@ export default function Play() {
 
   return (
     <div className="flex flex-col gap-4">
-      {demoNotice && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="fixed bottom-5 left-1/2 z-50 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-center text-sm font-semibold text-amber-950 shadow-xl"
-        >
-          {demoNotice}
-        </div>
-      )}
       <section
         className="mt-2 rounded-xl border border-[#f41468] bg-gradient-to-r from-[#25103b] via-[#1a082a] to-[#321043] p-3.5 shadow-[0_0_18px_rgba(244,20,104,.14)]"
         data-purpose="promo-banner"
@@ -417,11 +401,7 @@ export default function Play() {
           ))}
 
           {demoBattles.map((battle) => (
-            <DemoMatchCard
-              key={battle.id}
-              battle={battle}
-              onClick={() => setDemoNotice("This is a fictional demo battle. Only real battles can be opened or joined.")}
-            />
+            <DemoMatchCard key={battle.id} battle={battle} />
           ))}
         </div>
       </div>
@@ -542,22 +522,10 @@ function MatchCard({ battle, onClick }) {
   );
 }
 
-function DemoMatchCard({ battle, onClick }) {
+function DemoMatchCard({ battle }) {
   return (
-    <article
-      onClick={onClick}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          onClick?.();
-        }
-      }}
-      role="button"
-      tabIndex={0}
-      aria-label="Fictional demo battle, not a live match"
-      className="cursor-pointer overflow-hidden rounded-2xl border-2 border-dashed border-amber-400 bg-[#1a082a] shadow-[0_0_12px_rgba(244,20,104,.08)]"
-    >
-      <div className="flex items-center justify-between gap-2 border-b border-amber-400/50 bg-[#321043] px-3 py-1.5">
+    <article className="cursor-pointer overflow-hidden rounded-2xl border border-[#f41468]/60 bg-[#1a082a] shadow-[0_0_14px_rgba(244,20,104,.12)] transition active:scale-[0.99]">
+      <div className="flex items-center justify-between gap-2 border-b border-[#f41468]/30 bg-[#321043] px-3 py-1.5">
         <div className="flex min-w-0 items-center gap-1.5">
           <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-white/75">Playing For</span>
           <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-300 via-brand-500 to-[#C98509] text-[10px] font-black text-white shadow-sm">₹</span>
@@ -568,13 +536,35 @@ function DemoMatchCard({ battle, onClick }) {
           <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-300 via-brand-500 to-[#C98509] text-[10px] font-black text-white shadow-sm">₹</span>
           <span className="truncate text-xs font-black text-white">{formatPaise(battle.prize, { withSymbol: false })}</span>
         </div>
-        <span className="shrink-0 rounded-full bg-amber-300 px-2 py-1 text-[9px] font-black uppercase tracking-wide text-amber-950">Demo · {battle.startedMinutesAgo}m</span>
       </div>
+
       <div className="flex items-center justify-between gap-2 bg-[#1a082a] px-8 py-2.5">
         <PlayerAvatar name={battle.players[0]} />
-        <div aria-hidden="true" className="flex shrink-0 items-center justify-center">
-          <img src="/battle-vs.png" alt="" className="h-14 w-14 object-contain drop-shadow-[0_0_8px_rgba(244,20,104,.2)]" />
+
+        <div className="flex shrink-0 items-center justify-center">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-ink shadow-inner ring-2 ring-white/60">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-4 w-4 text-white"
+            >
+              <polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5" />
+              <line x1="13" x2="19" y1="19" y2="13" />
+              <line x1="16" x2="20" y1="16" y2="20" />
+              <line x1="19" x2="21" y1="21" y2="19" />
+              <polyline points="14.5 6.5 18 3 21 3 21 6 17.5 9.5" />
+              <line x1="5" x2="9" y1="14" y2="18" />
+              <line x1="7" x2="4" y1="17" y2="20" />
+              <line x1="3" x2="5" y1="19" y2="21" />
+            </svg>
+          </div>
         </div>
+
         <PlayerAvatar name={battle.players[1]} />
       </div>
     </article>
