@@ -14,6 +14,8 @@ const AMOUNT_STEP = 50;
 
 const ACTIVE_STATUSES = ["join_requested", "running", "room_submitted", "result_submitted", "cancel_requested"];
 const RUNNING_STATUSES = ["running", "room_submitted", "result_submitted", "cancel_requested"];
+const DEMO_NAME_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+const DEMO_STAKES_RUPEES = [50, 100, 150, 200, 250, 300, 500, 750, 1000, 1500, 2000, 2500, 5000];
 
 const creatorOf = (c) => c?.players?.find((p) => p.seat === 1) || null;
 const opponentOf = (c) => c?.players?.find((p) => p.seat === 2) || null;
@@ -27,6 +29,14 @@ export default function Play() {
   const [betAmount, setBetAmount] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const [createError, setCreateError] = useState("");
+  const [demoHour, setDemoHour] = useState(() => Math.floor(Date.now() / 3_600_000));
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setDemoHour(Math.floor(Date.now() / 3_600_000));
+    }, 60_000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   const open = useQuery({
     queryKey: ["contests", "open"],
@@ -113,6 +123,7 @@ export default function Play() {
     });
     return real;
   }, [myBattles]);
+  const demoBattles = useMemo(() => createDemoBattles(demoHour), [demoHour]);
   const previewPaise = useMemo(() => {
     const amt = Number(betAmount);
     if (!Number.isFinite(amt) || amt < MIN_AMOUNT || amt > MAX_AMOUNT || amt % AMOUNT_STEP !== 0) return null;
@@ -386,6 +397,15 @@ export default function Play() {
             />
           ))}
 
+          <section aria-label="Fictional demo battles" className="mt-2 space-y-2">
+            <div role="note" className="rounded-xl border border-amber-400 bg-amber-50 px-3 py-2 text-center">
+              <p className="text-xs font-black uppercase tracking-wide text-amber-950">Demo examples — not live battles</p>
+              <p className="mt-0.5 text-[10px] font-semibold text-amber-900">
+                Fictional players and stakes; these cards cannot be joined. Examples refresh hourly.
+              </p>
+            </div>
+            {demoBattles.map((battle) => <DemoMatchCard key={battle.id} battle={battle} />)}
+          </section>
         </div>
       </div>
     </div>
@@ -505,6 +525,36 @@ function MatchCard({ battle, onClick }) {
   );
 }
 
+function DemoMatchCard({ battle }) {
+  return (
+    <article
+      aria-label="Fictional demo battle, not a live match"
+      className="overflow-hidden rounded-2xl border-2 border-dashed border-amber-400 bg-[#1a082a] shadow-[0_0_12px_rgba(244,20,104,.08)]"
+    >
+      <div className="flex items-center justify-between gap-2 border-b border-amber-400/50 bg-[#321043] px-3 py-1.5">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-white/75">Playing For</span>
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-300 via-brand-500 to-[#C98509] text-[10px] font-black text-white shadow-sm">₹</span>
+          <span className="truncate text-xs font-black text-white">{formatPaise(battle.stake, { withSymbol: false })}</span>
+        </div>
+        <div className="flex min-w-0 items-center gap-1.5">
+          <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-white/75">Prize</span>
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-300 via-brand-500 to-[#C98509] text-[10px] font-black text-white shadow-sm">₹</span>
+          <span className="truncate text-xs font-black text-white">{formatPaise(battle.prize, { withSymbol: false })}</span>
+        </div>
+        <span className="shrink-0 rounded-full bg-amber-300 px-2 py-1 text-[9px] font-black uppercase tracking-wide text-amber-950">Demo</span>
+      </div>
+      <div className="flex items-center justify-between gap-2 bg-[#1a082a] px-8 py-2.5">
+        <PlayerAvatar name={battle.players[0]} />
+        <div aria-hidden="true" className="flex shrink-0 items-center justify-center">
+          <img src="/battle-vs.png" alt="" className="h-14 w-14 object-contain drop-shadow-[0_0_8px_rgba(244,20,104,.2)]" />
+        </div>
+        <PlayerAvatar name={battle.players[1]} />
+      </div>
+    </article>
+  );
+}
+
 function PlayerAvatar({ name }) {
   const safeName = String(name || "Player").trim() || "Player";
 
@@ -539,4 +589,35 @@ function LoadingIndicator({ label }) {
       {label && <p className="text-[10px] font-bold text-white/80">{label}</p>}
     </div>
   );
+}
+
+function createDemoBattles(hourSeed) {
+  let state = hourSeed >>> 0;
+  const random = () => {
+    state = (state + 0x6D2B79F5) | 0;
+    let value = state;
+    value = Math.imul(value ^ (value >>> 15), value | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    return ((value ^ (value >>> 14)) >>> 0) / 4_294_967_296;
+  };
+
+  const names = new Set();
+  while (names.size < 30) {
+    let name = "";
+    for (let index = 0; index < 5; index += 1) {
+      name += DEMO_NAME_ALPHABET[Math.floor(random() * DEMO_NAME_ALPHABET.length)];
+    }
+    names.add(name);
+  }
+  const players = [...names];
+
+  return Array.from({ length: 15 }, (_, index) => {
+    const stake = rupeesToPaise(DEMO_STAKES_RUPEES[Math.floor(random() * DEMO_STAKES_RUPEES.length)]);
+    return {
+      id: `demo-${hourSeed}-${index}`,
+      stake,
+      prize: computePrize(stake).prizePaise,
+      players: [players[index * 2], players[index * 2 + 1]],
+    };
+  });
 }
