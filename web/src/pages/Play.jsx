@@ -403,7 +403,7 @@ export default function Play() {
       <div>
         <SectionTitle title="Running Battles" action={<span className="text-[11px] font-bold text-slate-400">⚔️ live</span>} />
         <div className="mt-2 flex flex-col gap-3">
-          {!loading && runningBattles.length === 0 && <Empty title="No Running Battles" />}
+          {!loading && runningBattles.length === 0 && demoBattles.length === 0 && <Empty title="No Running Battles" />}
 
           {runningBattles.map((c) => (
             <MatchCard
@@ -413,21 +413,13 @@ export default function Play() {
             />
           ))}
 
-          <section aria-label="Fictional demo battles" className="mt-2 space-y-2">
-            <div role="note" className="rounded-xl border border-amber-400 bg-amber-50 px-3 py-2 text-center">
-              <p className="text-xs font-black uppercase tracking-wide text-amber-950">Demo examples — not live battles</p>
-              <p className="mt-0.5 text-[10px] font-semibold text-amber-900">
-                Fictional players and stakes; these cards cannot be joined. Examples refresh hourly.
-              </p>
-            </div>
-            {demoBattles.map((battle) => (
-              <DemoMatchCard
-                key={battle.id}
-                battle={battle}
-                onClick={() => setDemoNotice("This is a fictional demo battle. Only real battles can be opened or joined.")}
-              />
-            ))}
-          </section>
+          {demoBattles.map((battle) => (
+            <DemoMatchCard
+              key={battle.id}
+              battle={battle}
+              onClick={() => setDemoNotice("This is a fictional demo battle. Only real battles can be opened or joined.")}
+            />
+          ))}
         </div>
       </div>
     </div>
