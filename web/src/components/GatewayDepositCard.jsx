@@ -17,11 +17,13 @@ import { Button, Spinner } from "./ui.jsx";
 const FAST_MS = 4000; // while it is fresh we poll quickly…
 const SLOW_MS = 20_000; // …then back off so we do not burn gateway credits
 const FAST_WINDOW_MS = 2 * 60_000;
+const AUTO_CANCEL_MS = 10_000; // abandon a pending order if the user came back without paying
 
 export default function GatewayDepositCard({ depositId, onClose }) {
   const qc = useQueryClient();
   const toast = useToast();
   const startedAt = useRef(Date.now());
+  const didAutoCancel = useRef(false);
 
   const deposit = useQuery({
     queryKey: ["deposit", depositId],
@@ -57,6 +59,27 @@ export default function GatewayDepositCard({ depositId, onClose }) {
       qc.invalidateQueries({ queryKey: ["wallet", "history"] });
       qc.invalidateQueries({ queryKey: ["deposits", "mine"] });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status]);
+
+  // If the user abandoned the gateway checkout (came back without paying),
+  // cancel the pending order automatically so it stops blocking new deposits.
+  // The cancel endpoint first force-reconciles with the gateway, so a payment
+  // that actually went through is credited instead of cancelled.
+  useEffect(() => {
+    if (didAutoCancel.current) return undefined;
+    if (status !== "pending") return undefined;
+    const elapsed = Date.now() - startedAt.current;
+    if (elapsed >= AUTO_CANCEL_MS) {
+      didAutoCancel.current = true;
+      cancel.mutate();
+      return undefined;
+    }
+    const timer = window.setTimeout(() => {
+      didAutoCancel.current = true;
+      cancel.mutate();
+    }, AUTO_CANCEL_MS - elapsed);
+    return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
 

@@ -153,6 +153,11 @@ export default function Wallet() {
     try {
       const res = await api("/payments/deposit/gateway", { method: "POST", body: { amountPaise: paise } });
       if (res.paymentUrl) {
+        // remember the order id in the URL so a back-navigation / abandoned
+        // checkout shows the verifying card and can auto-cancel the order
+        const next = new URLSearchParams(searchParams);
+        next.set("deposit", res.id);
+        setSearchParams(next, { replace: true });
         window.location.href = res.paymentUrl; // hosted checkout (QR + UPI apps)
       } else {
         toast.error("Could not open the payment page");
