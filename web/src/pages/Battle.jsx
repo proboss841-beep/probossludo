@@ -128,6 +128,10 @@ export default function Battle() {
       // Suppress raw backend errors and show clean/restricted error messages
       if (err?.message?.includes("already") || err?.message?.includes("running")) {
         toast.error("You are already in a match");
+      } else if (err?.message?.includes("insufficient") || err?.message?.includes("balance")) {
+        toast.error("Insufficient wallet balance for this amount");
+      } else if (err?.message) {
+        toast.error(err.message);
       }
     } finally {
       setBusy(null);

@@ -108,6 +108,67 @@ function AppHeader({ onOpenMenu }) {
   );
 }
 
+function ledgerKind(row) {
+  if (row.type === "deposit") return { label: "Deposit", cls: "bg-emerald-100 text-emerald-700" };
+  if (["withdrawal_hold", "withdrawal_paid", "withdrawal_refund"].includes(row.type)) {
+    return { label: "Withdraw", cls: "bg-rose-100 text-rose-700" };
+  }
+  if (row.type === "admin_adjustment" && row.amountPaise < 0) return { label: "Penalty", cls: "bg-rose-100 text-rose-700" };
+  if (row.type === "admin_adjustment" && row.amountPaise > 0) return { label: "Bonus", cls: "bg-emerald-100 text-emerald-700" };
+  if (["referral_commission", "referral_bonus"].includes(row.type)) return { label: "Bonus", cls: "bg-emerald-100 text-emerald-700" };
+  if (row.type === "referral_redeem") return { label: "Withdraw", cls: "bg-rose-100 text-rose-700" };
+  return { label: "Other", cls: "bg-slate-100 text-slate-600" };
+}
+
+/** Compact deposit / withdraw / bonus / penalty history inside the sidebar. */
+function DrawerHistory({ open, onClose }) {
+  const { data } = useQuery({
+    queryKey: ["wallet", "history", "drawer"],
+    queryFn: () => api("/wallet/history?limit=6"),
+    enabled: open,
+    refetchInterval: 30_000,
+  });
+  const rows = data?.items || [];
+  if (rows.length === 0) return null;
+
+  return (
+    <div className="rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm">
+      <div className="mb-2 flex items-center justify-between">
+        <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">Recent activity</p>
+        <Link
+          to="/history"
+          onClick={onClose}
+          className="text-[11px] font-bold text-brand-600 hover:underline"
+        >
+          View all
+        </Link>
+      </div>
+      <ul className="space-y-1.5">
+        {rows.map((row) => {
+          const kind = ledgerKind(row);
+          const signed = Number(row.amountPaise) !== 0;
+          return (
+            <li key={row.id} className="flex items-center justify-between gap-2">
+              <div className="flex min-w-0 items-center gap-2">
+                <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[9px] font-black uppercase ${kind.cls}`}>
+                  {kind.label}
+                </span>
+                <span className="truncate text-[11px] text-slate-500">{row.note || row.type}</span>
+              </div>
+              {signed ? (
+                <span className={`shrink-0 text-[11px] font-black ${Number(row.amountPaise) > 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                  {Number(row.amountPaise) > 0 ? "+" : "−"}
+                  {formatPaise(Math.abs(row.amountPaise), { withSymbol: false })}
+                </span>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 function Drawer({ open, onClose }) {
   return (
     <>
@@ -161,6 +222,8 @@ function Drawer({ open, onClose }) {
               </svg>
             </Link>
           ))}
+
+          <DrawerHistory open={open} onClose={onClose} />
         </nav>
       </aside>
     </>

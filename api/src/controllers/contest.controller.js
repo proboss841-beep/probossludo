@@ -1,5 +1,4 @@
 import * as contestService from "../services/contest.service.js";
-import { walletView } from "../services/wallet.service.js";
 import { Contest, CONTEST_STATES } from "../db/models/contest.model.js";
 import { User } from "../db/models/user.model.js";
 import { createContestSchema, submitRoomSchema, submitResultSchema } from "../lib/shared/schemas/index.js";
@@ -164,9 +163,11 @@ export async function getContest(req, res) {
 
 /** POST /contests/:id/cancel */
 export async function cancel(req, res) {
-  const contest = await contestService.cancelContest({ userId: req.user.id, contestId: req.params.id });
-  const fresh = await Contest.findById(contest._id).select("+roomCode").populate("players.userId", "name");
-  emitContestUpdate(fresh || contest);
-  emitWalletUpdate(req.user.id, await walletView(req.user.id));
-  res.json({ contest: contestDto(fresh || contest, { userId: req.user.id }) });
+  const out = await contestService.cancelContest({ userId: req.user.id, contestId: req.params.id });
+  const fresh = await Contest.findById(out.contest._id).select("+roomCode").populate("players.userId", "name");
+  emitContestUpdate(fresh || out.contest);
+  for (const [uid, view] of Object.entries(out.walletViews || {})) {
+    emitWalletUpdate(uid, view);
+  }
+  res.json({ contest: contestDto(fresh || out.contest, { userId: req.user.id }) });
 }

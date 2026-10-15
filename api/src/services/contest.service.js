@@ -400,22 +400,28 @@ export async function cancelContest({ userId, contestId }) {
           contest.transition(CONTEST_STATES.OPEN, { actor: userId, note: "join request withdrawn" });
           await contest.save({ session });
           await invalidateOpenList();
-          return contest;
+          return { contest, walletViews: {} };
         }
         if (!creator || String(creator.userId) !== String(userId)) throw new ForbiddenError("Not your battle");
       }
       if (!isTransitionAllowed(contest.status, CONTEST_STATES.CANCELLED)) {
         throw new ConflictError(`A battle in "${contest.status}" cannot be cancelled`);
       }
+      // refund EVERY participant who has a hold (refund_both), not just the canceller
+      const walletViews = {};
+      for (const p of contest.players) {
+        if (await walletService.hasEntryFeeHold({ userId: p.userId, contestId, session })) {
+          const view = await walletService.refundEntryFee({
+            userId: p.userId, contestId, amountPaise: contest.stake,
+            note: "Battle cancelled — stake refunded", session,
+          });
+          walletViews[String(p.userId)] = view;
+        }
+      }
       contest.transition(CONTEST_STATES.CANCELLED, { actor: userId, note: "cancelled by player" });
       await contest.save({ session });
-      if (await walletService.hasEntryFeeHold({ userId, contestId, session })) {
-        await walletService.refundEntryFee({
-          userId, contestId, amountPaise: contest.stake, note: "You cancelled the battle", session,
-        });
-      }
       await invalidateOpenList();
-      return contest;
+      return { contest, walletViews };
     })
   );
 }
@@ -604,6 +610,8 @@ export async function listOpenContests({ page, limit }) {
     items = pageDocs.map((doc) => Contest.hydrate(doc));
   }
 
+  // always attach the creator's 5-letter player handle, cache or not
+  await Contest.populate(items, { path: "players.userId", select: "name" });
   return { items, total };
 }
 

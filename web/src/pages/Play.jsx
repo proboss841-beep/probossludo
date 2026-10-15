@@ -51,6 +51,11 @@ export default function Play() {
     queryFn: () => api("/contests/mine"),
     refetchInterval: 15_000,
   });
+  const wallet = useQuery({
+    queryKey: ["wallet"],
+    queryFn: () => api("/wallet"),
+    refetchInterval: 15_000,
+  });
   const supportSettings = useQuery({
     queryKey: ["settings", "public"],
     queryFn: () => api("/settings/public"),
@@ -67,16 +72,25 @@ export default function Play() {
     function resubscribe() {
       socket.emit("subscribe:contests", {}, () => {});
     }
-    socket.on("connect", resubscribe);
-    socket.on("contest:list-changed", () => {
+    function refreshLists() {
       qc.invalidateQueries({ queryKey: ["contests"] });
-    });
+      qc.invalidateQueries({ queryKey: ["wallet"] });
+    }
+    socket.on("connect", resubscribe);
+    socket.on("contest:list-changed", refreshLists);
+    socket.on("contest:updated", refreshLists);
     socket.on("wallet:updated", (view) => qc.setQueryData(["wallet"], view));
+    function onFocus() {
+      refreshLists();
+    }
+    window.addEventListener("focus", onFocus);
     resubscribe();
     return () => {
       socket.off("connect");
       socket.off("contest:list-changed");
+      socket.off("contest:updated");
       socket.off("wallet:updated");
+      window.removeEventListener("focus", onFocus);
     };
   }, [qc]);
 
@@ -165,6 +179,13 @@ export default function Play() {
     const stake = rupeesToPaise(amt);
     if (mySearchingBattles.some((c) => c.stake === stake)) {
       toast.error(`You already have an open battle of ₹${amt}`);
+      return;
+    }
+
+    // wallet guard: never allow an open bet higher than the available balance
+    const availablePaise = Number(wallet.data?.availablePaise) || 0;
+    if (stake > availablePaise) {
+      setCreateError(`Insufficient wallet balance for ₹${amt}. You have ₹${formatPaise(availablePaise)} available — add funds first.`);
       return;
     }
 
