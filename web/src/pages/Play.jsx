@@ -15,7 +15,10 @@ const AMOUNT_STEP = 50;
 const ACTIVE_STATUSES = ["join_requested", "running", "room_submitted", "result_submitted", "cancel_requested"];
 const RUNNING_STATUSES = ["running", "room_submitted", "result_submitted", "cancel_requested"];
 const DEMO_NAME_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ";
-const DEMO_STAKES_RUPEES = [50, 100, 150, 200, 250, 300, 500, 750, 1000, 1500, 2000, 2500, 5000];
+const DEMO_STAKES_PAISE = [
+  5000, 10000, 15000, 20000, 25000, 30000, 40000, 50000, 75000, 100000,
+  150000, 200000, 250000, 300000, 400000, 500000, 750000, 1000000, 1500000, 2000000,
+];
 
 const creatorOf = (c) => c?.players?.find((p) => p.seat === 1) || null;
 const opponentOf = (c) => c?.players?.find((p) => p.seat === 2) || null;
@@ -565,7 +568,7 @@ function DemoMatchCard({ battle, onClick }) {
           <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-300 via-brand-500 to-[#C98509] text-[10px] font-black text-white shadow-sm">₹</span>
           <span className="truncate text-xs font-black text-white">{formatPaise(battle.prize, { withSymbol: false })}</span>
         </div>
-        <span className="shrink-0 rounded-full bg-amber-300 px-2 py-1 text-[9px] font-black uppercase tracking-wide text-amber-950">Demo</span>
+        <span className="shrink-0 rounded-full bg-amber-300 px-2 py-1 text-[9px] font-black uppercase tracking-wide text-amber-950">Demo · {battle.startedMinutesAgo}m</span>
       </div>
       <div className="flex items-center justify-between gap-2 bg-[#1a082a] px-8 py-2.5">
         <PlayerAvatar name={battle.players[0]} />
@@ -633,14 +636,21 @@ function createDemoBattles(hourSeed) {
     names.add(name);
   }
   const players = [...names];
+  const stakes = [...DEMO_STAKES_PAISE];
+  for (let index = stakes.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(random() * (index + 1));
+    [stakes[index], stakes[swapIndex]] = [stakes[swapIndex], stakes[index]];
+  }
+  const minutesAgo = Array.from({ length: 15 }, (_, index) => 4 + (15 - index) * 31 + (index % 3) * 9);
 
   return Array.from({ length: 15 }, (_, index) => {
-    const stake = rupeesToPaise(DEMO_STAKES_RUPEES[Math.floor(random() * DEMO_STAKES_RUPEES.length)]);
+    const stake = stakes[index];
     return {
       id: `demo-${hourSeed}-${index}`,
       stake,
       prize: computePrize(stake).prizePaise,
       players: [players[index * 2], players[index * 2 + 1]],
+      startedMinutesAgo: minutesAgo[index],
     };
   });
 }
