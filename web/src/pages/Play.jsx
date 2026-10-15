@@ -30,6 +30,7 @@ export default function Play() {
   const [actionLoading, setActionLoading] = useState(false);
   const [createError, setCreateError] = useState("");
   const [demoHour, setDemoHour] = useState(() => Math.floor(Date.now() / 3_600_000));
+  const [demoNotice, setDemoNotice] = useState("");
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -37,6 +38,12 @@ export default function Play() {
     }, 60_000);
     return () => window.clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (!demoNotice) return undefined;
+    const timeout = window.setTimeout(() => setDemoNotice(""), 3_500);
+    return () => window.clearTimeout(timeout);
+  }, [demoNotice]);
 
   const open = useQuery({
     queryKey: ["contests", "open"],
@@ -284,6 +291,15 @@ export default function Play() {
 
   return (
     <div className="flex flex-col gap-4">
+      {demoNotice && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-5 left-1/2 z-50 w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-center text-sm font-semibold text-amber-950 shadow-xl"
+        >
+          {demoNotice}
+        </div>
+      )}
       <section
         className="mt-2 rounded-xl border border-[#f41468] bg-gradient-to-r from-[#25103b] via-[#1a082a] to-[#321043] p-3.5 shadow-[0_0_18px_rgba(244,20,104,.14)]"
         data-purpose="promo-banner"
@@ -404,7 +420,13 @@ export default function Play() {
                 Fictional players and stakes; these cards cannot be joined. Examples refresh hourly.
               </p>
             </div>
-            {demoBattles.map((battle) => <DemoMatchCard key={battle.id} battle={battle} />)}
+            {demoBattles.map((battle) => (
+              <DemoMatchCard
+                key={battle.id}
+                battle={battle}
+                onClick={() => setDemoNotice("This is a fictional demo battle. Only real battles can be opened or joined.")}
+              />
+            ))}
           </section>
         </div>
       </div>
@@ -525,11 +547,20 @@ function MatchCard({ battle, onClick }) {
   );
 }
 
-function DemoMatchCard({ battle }) {
+function DemoMatchCard({ battle, onClick }) {
   return (
     <article
+      onClick={onClick}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onClick?.();
+        }
+      }}
+      role="button"
+      tabIndex={0}
       aria-label="Fictional demo battle, not a live match"
-      className="overflow-hidden rounded-2xl border-2 border-dashed border-amber-400 bg-[#1a082a] shadow-[0_0_12px_rgba(244,20,104,.08)]"
+      className="cursor-pointer overflow-hidden rounded-2xl border-2 border-dashed border-amber-400 bg-[#1a082a] shadow-[0_0_12px_rgba(244,20,104,.08)]"
     >
       <div className="flex items-center justify-between gap-2 border-b border-amber-400/50 bg-[#321043] px-3 py-1.5">
         <div className="flex min-w-0 items-center gap-1.5">
