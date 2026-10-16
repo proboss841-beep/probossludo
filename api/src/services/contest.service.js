@@ -161,6 +161,10 @@ export async function joinContest({ userId, contestId, ip }) {
         if (contest.status !== CONTEST_STATES.OPEN) throw new ConflictError("Battle is not open to join");
         if (contest.isParticipant(userId)) throw new ConflictError("You already own this battle");
 
+        // A player cannot join a battle whose entry fee exceeds their available
+        // balance — enforce on the server too, not just in the UI.
+        await walletService.assertAvailable(userId, contest.stake, { session });
+
         contest.players.push({ userId, seat: 2, joinedAt: new Date(), joinedIp: ip });
         contest.transition(CONTEST_STATES.JOIN_REQUESTED, { actor: userId, note: "second player seated" });
         await contest.save({ session });

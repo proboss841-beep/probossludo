@@ -185,7 +185,9 @@ export default function Play() {
     // wallet guard: never allow an open bet higher than the available balance
     const availablePaise = Number(wallet.data?.availablePaise) || 0;
     if (stake > availablePaise) {
-      setCreateError(`Insufficient wallet balance for ₹${amt}. You have ₹${formatPaise(availablePaise)} available — add funds first.`);
+      const msg = `Insufficient balance: ₹${amt} entry fee is more than your ₹${formatPaise(availablePaise, { withSymbol: false })} balance.`;
+      toast.error(msg);
+      setCreateError(msg);
       return;
     }
 
@@ -208,19 +210,34 @@ export default function Play() {
     }
   }
 
-  async function joinMatch(battleId) {
+  async function joinMatch(battle) {
     if (myActiveBattle) {
       toast.error("You are already in a match");
       return;
     }
+
+    // wallet guard: a player cannot join a battle whose entry fee exceeds the
+    // balance available in their account.
+    const availablePaise = Number(wallet.data?.availablePaise) || 0;
+    const stakePaise = Number(battle?.stake) || 0;
+    if (stakePaise > availablePaise) {
+      const entry = formatPaise(stakePaise, { withSymbol: false });
+      toast.error(`Insufficient balance: the ${entry} entry fee is more than your ₹${formatPaise(availablePaise, { withSymbol: false })} balance.`);
+      return;
+    }
+
     try {
       setActionLoading(true);
-      await api(`/contests/${battleId}/join`, { method: "POST" });
+      await api(`/contests/${battle.id}/join`, { method: "POST" });
       invalidate();
     } catch (err) {
       const msg = String(err?.message || "");
       if (/already|game|match/i.test(msg)) {
         toast.error("You are already in a match");
+      } else if (/insufficient|balance|fund/i.test(msg)) {
+        toast.error("Insufficient balance for this battle");
+      } else if (msg) {
+        toast.error(msg);
       }
     } finally {
       setActionLoading(false);
@@ -294,7 +311,7 @@ export default function Play() {
           variant="success"
           className="px-3 py-1.5 text-[11px]"
           disabled={actionLoading}
-          onClick={() => joinMatch(c.id)}
+          onClick={() => joinMatch(c)}
         >
           PLAY
         </Button>

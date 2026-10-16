@@ -67,6 +67,13 @@ export default function Battle() {
     refetchInterval: 15_000,
   });
 
+  // Wallet balance — used to block joining a battle whose entry fee the user can't cover
+  const walletQuery = useQuery({
+    queryKey: ["wallet"],
+    queryFn: () => api("/wallet"),
+    refetchInterval: 15_000,
+  });
+
   /* -------------------------------------------------------------------------- */
   /*                         WEBSOCKET LISTENERS                                */
   /* -------------------------------------------------------------------------- */
@@ -172,6 +179,15 @@ export default function Battle() {
   const join = (targetId = id) => {
     if (hasActiveMatch) {
       return toast.error("You are already in a match");
+    }
+
+    // wallet guard: a player cannot join a battle whose entry fee exceeds the
+    // balance available in their account.
+    const availablePaise = Number(walletQuery.data?.availablePaise) || 0;
+    const stakePaise = Number(contestQuery.data?.stake) || Number(openContestsQuery.data?.find((b) => String(b.id) === String(targetId))?.stake) || 0;
+    if (stakePaise > availablePaise) {
+      const entry = formatPaise(stakePaise, { withSymbol: false });
+      return toast.error(`Insufficient balance: the ${entry} entry fee is more than your ₹${formatPaise(availablePaise, { withSymbol: false })} balance.`);
     }
 
     return run(
