@@ -12,6 +12,7 @@ const phoneSchema = z
   .pipe(z.string().regex(/^[6-9]\d{9}$/, "Enter a valid 10-digit Indian mobile number"));
 
 export default function Login() {
+  // Redeploy trigger: ensure OTP verify step renders after Send OTP.
   const toast = useToast();
   const [searchParams] = useSearchParams();
   const [step, setStep] = useState("phone");
