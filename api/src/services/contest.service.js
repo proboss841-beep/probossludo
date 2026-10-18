@@ -333,7 +333,11 @@ export async function settleContest({ contestId, winnerUserId, settledBy, sessio
   if (!loser) throw new BadRequestError("Battle needs both players present before settling");
 
   const b = computePrize(contest.stake);
-  await walletService.releaseEntryFee({ userId: winner.userId, contestId, amountPaise: contest.stake, session });
+  // BOTH players pay the entry fee (it is cut from their balance when the
+  // battle starts). The winner's held stake is CONSUMED here, then the prize
+  // is credited on top — so a winner of a ₹100 battle ends up ₹190 richer,
+  // not ₹290 (their own stake must never be credited back on a win).
+  await walletService.consumeEntryFee({ userId: winner.userId, contestId, amountPaise: contest.stake, contestRef: { contestId, stake: contest.stake }, session });
   const loserWallet = await walletService.consumeEntryFee({ userId: loser.userId, contestId, amountPaise: contest.stake, session });
   const wallet = await walletService.creditPrize({
     userId: winner.userId, contestId, amountPaise: b.prizePaise, settledBy, session,

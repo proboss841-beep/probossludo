@@ -155,8 +155,9 @@ test("battle lifecycle: create -> request -> creator starts -> settle exactly on
 
   const afterB = (await request(app).get("/api/user/profile").set("Authorization", `Bearer ${tokens.B}`)).body.wallet.totalPaise;
   const afterC = (await request(app).get("/api/user/profile").set("Authorization", `Bearer ${tokens.C}`)).body.wallet.totalPaise;
-  // winner: stake back + 9500 prize (5% commission on the 10k pool)
-  assert.equal(afterB - beforeB, 9500);
+  // winner: their own stake is consumed (entry fee), then credited the 9500
+  // prize on top — net +4500 (not +9500; the ₹50 entry fee is NOT returned).
+  assert.equal(afterB - beforeB, 4500);
   assert.equal(beforeC - afterC, 5000);
 
   // replaying the settle must be a no-op (idempotency)
