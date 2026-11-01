@@ -59,7 +59,8 @@ function AppHeader({ onOpenMenu }) {
   const { prompt: installPrompt, install: installPwa } = usePwaInstall();
 
   /** Download/Install click — when the browser offers a PWA install prompt,
-   * show it right here; otherwise go to the download page for instructions. */
+   * show the native popup right here; otherwise go to the download page,
+   * which retries and only then falls back (never browser-menu instructions). */
   async function onDownloadClick(e) {
     if (installPrompt) {
       e.preventDefault();
