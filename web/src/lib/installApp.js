@@ -7,6 +7,11 @@
  * "ProbossLudoApp" token into its User-Agent, and the same helper covers the
  * standalone/home-screen shortcut case so the "Download" button disappears
  * once the app is installed.
+ *
+ * Installed state is device-aware: Chrome Android's getInstalledRelatedApps()
+ * lets us see the PWA even from a plain browser tab (beforeinstallprompt never
+ * fires once the app is on the phone), so the Install button / popup never
+ * dead-ends in "Install popup didn't open" for users who already installed.
  */
 import { useEffect, useState } from "react";
 
@@ -23,9 +28,30 @@ export function isStandalone() {
   return Boolean(window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
 }
 
-/** has the app already been installed on this device (either wrapper or PWA)? */
+/** has the app already been installed on this device (wrapper or standalone)? */
 export function isInstalled() {
   return isInApp() || isStandalone();
+}
+
+/**
+ * Detect the installed PWA even from a plain browser tab.
+ *
+ * Chrome Android's navigator.getInstalledRelatedApps() reports an installed
+ * web-app entry for the current origin — which is exactly the case where the
+ * browser will NOT fire `beforeinstallprompt` (the app is already installed),
+ * so the old code had no way to know and the Install button failed.
+ * Returns false on browsers that don't support the API (iOS, older Chrome).
+ */
+export async function detectInstalledWebApp() {
+  if (typeof navigator === "undefined" || typeof navigator.getInstalledRelatedApps !== "function") {
+    return false;
+  }
+  try {
+    const apps = await navigator.getInstalledRelatedApps();
+    return apps.some((app) => app.platform === "webapp");
+  } catch {
+    return false;
+  }
 }
 
 /* ---------------------------------------------------------------------------
@@ -33,11 +59,10 @@ export function isInstalled() {
  *
  * Chrome/Edge/Android fire `beforeinstallprompt` at most ONCE per page load,
  * and only once the site is considered installable. Every component that
- * renders an Install button (the header chip, the App Download page, ...)
- * must read the same captured event — otherwise a page that mounts later
- * never sees the prompt that was already fired (and consumed) elsewhere,
- * which is exactly why the Install button used to dead-end in a useless
- * "use your browser menu" toast.
+ * renders an Install button (the header chip, the App Download page, the
+ * Download popup, ...) must read the same captured event and the same
+ * device-level installed status — otherwise a component that mounts later
+ * never sees what another one already captured.
  *
  * The listeners are registered here, at module load (i.e. app startup, before
  * any component mounts), so the one-shot event is captured as early as
@@ -46,17 +71,31 @@ export function isInstalled() {
 
 let sharedPrompt = null; // the saved beforeinstallprompt event (one-shot per page)
 let installInFlight = false; // guard against double prompt() calls
+let sharedInstalled = isInstalled(); // device-level installed status
+let deviceCheckDone = false; // first async getInstalledRelatedApps() finished?
 
 const promptListeners = new Set(); // (event | null) => void
-const installListeners = new Set(); // () => void — installed state may have changed
+const installListeners = new Set(); // (installed: boolean) => void
 
 function setSharedPrompt(p) {
   sharedPrompt = p;
   promptListeners.forEach((fn) => fn(p));
 }
 
-function notifyInstalledChange() {
-  installListeners.forEach((fn) => fn());
+function emitInstalled(installed) {
+  sharedInstalled = installed;
+  installListeners.forEach((fn) => fn(installed));
+}
+
+/** Re-run every device-level installed check (wrapper / standalone / PWA). */
+export async function refreshInstalled() {
+  if (typeof window === "undefined") return sharedInstalled;
+  const nowInstalled = isInstalled() || (await detectInstalledWebApp());
+  if (!deviceCheckDone || nowInstalled !== sharedInstalled) {
+    deviceCheckDone = true;
+    emitInstalled(nowInstalled);
+  }
+  return nowInstalled;
 }
 
 if (typeof window !== "undefined") {
@@ -66,25 +105,31 @@ if (typeof window !== "undefined") {
   });
   window.addEventListener("appinstalled", () => {
     setSharedPrompt(null);
-    notifyInstalledChange();
+    emitInstalled(true);
+  });
+  // run the device-level check as soon as the app boots (from a plain browser
+  // tab it reveals an already-installed PWA that beforeinstallprompt never
+  // signals), and re-check whenever the user comes back to the tab.
+  refreshInstalled();
+  window.addEventListener("focus", refreshInstalled);
+  document.addEventListener("visibilitychange", () => {
+    if (typeof document !== "undefined" && !document.hidden) refreshInstalled();
   });
 }
 
-/** React hook — re-evaluates the install state on mount, focus and install. */
+/** React hook — device-level install state (re-evaluated on mount/focus). */
 export function useIsInstalled() {
-  const [installed, setInstalled] = useState(isInstalled());
+  const [installed, setInstalled] = useState(sharedInstalled);
   useEffect(() => {
-    function refresh() {
-      setInstalled(isInstalled());
+    function onInstalled(i) {
+      setInstalled(i);
     }
-    refresh();
-    installListeners.add(refresh);
-    window.addEventListener("focus", refresh);
-    window.addEventListener("appinstalled", refresh);
+    installListeners.add(onInstalled);
+    refreshInstalled();
+    window.addEventListener("focus", refreshInstalled);
     return () => {
-      installListeners.delete(refresh);
-      window.removeEventListener("focus", refresh);
-      window.removeEventListener("appinstalled", refresh);
+      installListeners.delete(onInstalled);
+      window.removeEventListener("focus", refreshInstalled);
     };
   }, []);
   return installed;
@@ -112,7 +157,7 @@ async function showPrompt(evt) {
   setSharedPrompt(null);
   if (outcome === "accepted") {
     // `appinstalled` follows immediately; this keeps the UI in sync right now.
-    notifyInstalledChange();
+    emitInstalled(true);
   }
   return { shown: true, outcome: outcome || "unknown" };
 }
@@ -132,22 +177,24 @@ async function showPrompt(evt) {
  */
 export function usePwaInstall() {
   const [prompt, setPrompt] = useState(sharedPrompt);
-  const [installed, setInstalled] = useState(isInstalled());
+  const [installed, setInstalled] = useState(sharedInstalled);
+  const [checking, setChecking] = useState(!deviceCheckDone);
 
   useEffect(() => {
     function onPrompt(p) {
       setPrompt(p);
     }
-    function refreshInstalled() {
-      setInstalled(isInstalled());
+    function onInstalled(i) {
+      setInstalled(i);
+      setChecking(false);
     }
     promptListeners.add(onPrompt);
-    installListeners.add(refreshInstalled);
-    refreshInstalled();
+    installListeners.add(onInstalled);
+    refreshInstalled().then(() => setChecking(false));
     window.addEventListener("focus", refreshInstalled);
     return () => {
       promptListeners.delete(onPrompt);
-      installListeners.delete(refreshInstalled);
+      installListeners.delete(onInstalled);
       window.removeEventListener("focus", refreshInstalled);
     };
   }, []);
@@ -186,7 +233,7 @@ export function usePwaInstall() {
     return showPrompt(got);
   };
 
-  return { prompt, install, installed };
+  return { prompt, install, installed, checking };
 }
 
 /** iOS Safari never fires beforeinstallprompt — detect it for instructions. */

@@ -16,6 +16,7 @@ import ReferHistory from "./pages/ReferHistory.jsx";
 import History from "./pages/History.jsx";
 import Redeem from "./pages/Redeem.jsx";
 import AppDownload from "./pages/AppDownload.jsx";
+import DownloadAppPopup from "./components/DownloadAppPopup.jsx";
 import { Spinner } from "./components/ui.jsx";
 import { NavIcon } from "./components/art.jsx";
 import { formatPaise } from "./lib/money.js";
@@ -335,6 +336,9 @@ export default function App() {
     <div className="player-app relative flex min-h-screen w-full max-w-[650px] flex-col shadow-2xl">
       <AppHeader onOpenMenu={() => setMenuOpen(true)} />
       <Drawer open={menuOpen} onClose={() => setMenuOpen(false)} />
+      {/* Download-the-app modal — shows on every page load until the app is
+          installed on the device; dismissible per session with the cross. */}
+      <DownloadAppPopup />
       <main className="flex-1 space-y-4 px-4 pb-28 pt-1">
         <Routes>
           <Route path="/" element={<Home />} />

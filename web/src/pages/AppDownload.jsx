@@ -16,7 +16,7 @@ import { usePwaInstall } from "../lib/installApp.js";
  * send the user hunting in the browser menu.
  */
 export default function AppDownload() {
-  const { prompt, install, installed } = usePwaInstall();
+  const { prompt, install, installed, checking } = usePwaInstall();
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
 
@@ -69,15 +69,24 @@ export default function AppDownload() {
               : "Install the app on your phone — it lives on your home screen, opens full-screen like a real app, and stays updated automatically."}
           </p>
 
-          {!installed && (
-            /* Install button — always visible; opens the native install dialog
-               when the browser supports it */
-            <button
-              type="button"
-              onClick={onInstall}
-              disabled={busy}
-              className="mt-2 inline-flex flex-col items-center justify-center rounded-full border-2 border-[#1E1E1E] bg-[#FEF0B6] px-6 py-2 shadow-md transition-all hover:brightness-95 active:scale-95 cursor-pointer disabled:cursor-wait disabled:opacity-70"
-            >
+          {!installed &&
+            (checking ? (
+              /* brief place-holder while the device-level install check runs
+                 (avoids flashing an Install button that can't open the popup
+                 for users who already installed the app) */
+              <span className="mt-2 inline-flex items-center gap-2 rounded-full border-2 border-slate-700 bg-slate-800/60 px-6 py-3 text-xs font-black text-slate-400">
+                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-500 border-t-transparent" aria-hidden="true" />
+                Checking…
+              </span>
+            ) : (
+              /* Install button — always visible; opens the native install dialog
+                 when the browser supports it */
+              <button
+                type="button"
+                onClick={onInstall}
+                disabled={busy}
+                className="mt-2 inline-flex flex-col items-center justify-center rounded-full border-2 border-[#1E1E1E] bg-[#FEF0B6] px-6 py-2 shadow-md transition-all hover:brightness-95 active:scale-95 cursor-pointer disabled:cursor-wait disabled:opacity-70"
+              >
               {/* Green Circle Badge with Live Bouncing Download Icon */}
               <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#48C79C] text-white animate-bounce shadow-sm">
                 {busy ? (
@@ -107,7 +116,7 @@ export default function AppDownload() {
                 {busy ? "Preparing…" : "Install"}
               </span>
             </button>
-          )}
+          ))}
 
           {installed && (
             <span className="rounded-full bg-[#1a082a] px-4 py-2 text-xs font-black uppercase tracking-wide text-[#55baff] ring-1 ring-[#55baff]/50">
