@@ -12,8 +12,34 @@
  * lets us see the PWA even from a plain browser tab (beforeinstallprompt never
  * fires once the app is on the phone), so the Install button / popup never
  * dead-ends in "Install popup didn't open" for users who already installed.
+ *
+ * IMPORTANT: getInstalledRelatedApps() only reports the PWA when the manifest
+ * declares a self-reference — "related_applications": [{ "platform": "webapp",
+ * "url": "/manifest.webmanifest" }] — see public/manifest.webmanifest.
+ * Browsers without that API fall back to a localStorage flag we write when the
+ * install completes (and clear when beforeinstallprompt proves it isn't
+ * installed anymore).
  */
 import { useEffect, useState } from "react";
+
+const INSTALL_FLAG_KEY = "probossludo-pwa-installed";
+
+function readInstallFlag() {
+  try {
+    return typeof localStorage !== "undefined" && localStorage.getItem(INSTALL_FLAG_KEY) === "1";
+  } catch {
+    return false; // private mode / storage denied
+  }
+}
+
+function writeInstallFlag(installed) {
+  try {
+    if (installed) localStorage.setItem(INSTALL_FLAG_KEY, "1");
+    else localStorage.removeItem(INSTALL_FLAG_KEY);
+  } catch {
+    /* private mode / storage denied */
+  }
+}
 
 /** are we running inside the official Android WebView app? */
 export function isInApp() {
@@ -90,7 +116,12 @@ function emitInstalled(installed) {
 /** Re-run every device-level installed check (wrapper / standalone / PWA). */
 export async function refreshInstalled() {
   if (typeof window === "undefined") return sharedInstalled;
-  const nowInstalled = isInstalled() || (await detectInstalledWebApp());
+  const apiSupported =
+    typeof navigator !== "undefined" && typeof navigator.getInstalledRelatedApps === "function";
+  // The related-apps API is the device's true answer; on browsers without it
+  // (iOS Safari, older Chrome) fall back to the flag we keep in localStorage.
+  const detected = apiSupported ? await detectInstalledWebApp() : false;
+  const nowInstalled = isInstalled() || detected || (!apiSupported && readInstallFlag());
   if (!deviceCheckDone || nowInstalled !== sharedInstalled) {
     deviceCheckDone = true;
     emitInstalled(nowInstalled);
@@ -102,9 +133,16 @@ if (typeof window !== "undefined") {
   window.addEventListener("beforeinstallprompt", (event) => {
     event.preventDefault(); // suppress the browser's automatic mini install bar
     setSharedPrompt(event);
+    // The browser only fires this while the app is NOT installed — if a stale
+    // flag survives an uninstall, drop it so install UI comes back promptly.
+    if (readInstallFlag()) {
+      writeInstallFlag(false);
+      emitInstalled(isInstalled());
+    }
   });
   window.addEventListener("appinstalled", () => {
     setSharedPrompt(null);
+    writeInstallFlag(true);
     emitInstalled(true);
   });
   // run the device-level check as soon as the app boots (from a plain browser
@@ -157,6 +195,7 @@ async function showPrompt(evt) {
   setSharedPrompt(null);
   if (outcome === "accepted") {
     // `appinstalled` follows immediately; this keeps the UI in sync right now.
+    writeInstallFlag(true);
     emitInstalled(true);
   }
   return { shown: true, outcome: outcome || "unknown" };
