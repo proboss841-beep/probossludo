@@ -58,7 +58,7 @@ function AppHeader({ onOpenMenu }) {
   const installed = useIsInstalled();
 
   return (
-    <section className="flex items-center gap-2.5 border-b border-[#f41468]/30 px-4 py-2.5" data-purpose="app-header">
+    <section className="flex items-center gap-2 border-b border-[#f41468]/30 px-3 py-2.5" data-purpose="app-header">
       <button
         type="button"
         onClick={onOpenMenu}
@@ -75,47 +75,52 @@ function AppHeader({ onOpenMenu }) {
       </Link>
 
       <div className="ml-auto flex items-center gap-1.5">
-        {/* app download — hidden once the Android app / PWA shortcut is installed */}
+        {/* Download Button: Stacked layout (Arrow on top, text underneath), wallet gradient color, animated green arrow.
+            Hidden once the Android app / PWA shortcut is installed. */}
         {!installed && (
           <Link
             to="/app-download"
-            aria-label="Download the app"
-            title="Download the app"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sky-500 text-white shadow-sm transition-all active:scale-95"
+            aria-label="Download App"
+            className="flex flex-col items-center justify-center rounded-2xl border border-sky-300/80 bg-gradient-to-b from-sky-400 via-sky-500 to-blue-600 px-2.5 py-1 text-white shadow-[0_0_10px_rgba(56,189,248,.35)] transition-transform active:scale-95"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v12m0 0l-4.5-4.5M12 16l4.5-4.5M4 20h16" />
-            </svg>
+            <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#10b981] text-white animate-bounce shadow-sm">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5 stroke-[3]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+              </svg>
+            </span>
+            <span className="text-[10px] font-extrabold tracking-tight text-white drop-shadow-sm leading-tight mt-0.5">
+              Download
+            </span>
           </Link>
         )}
 
-        {/* deposit balance */}
+        {/* Compact Deposit balance chip */}
         <Link
           to="/wallet"
           aria-label="Wallet balance"
-          className="flex min-w-[82px] items-center justify-center gap-1.5 rounded-full border border-sky-300/80 bg-gradient-to-b from-sky-400 via-sky-500 to-blue-600 px-3 py-2 text-white shadow-[0_0_16px_rgba(56,189,248,.45),inset_0_1px_2px_rgba(255,255,255,.45)] transition-transform active:scale-95"
+          className="flex min-w-[68px] items-center justify-center gap-1 rounded-full border border-sky-300/80 bg-gradient-to-b from-sky-400 via-sky-500 to-blue-600 px-2 py-1.5 text-white shadow-[0_0_10px_rgba(56,189,248,.35)] transition-transform active:scale-95"
         >
-          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-5 w-5 shrink-0 drop-shadow-sm">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-4 w-4 shrink-0 drop-shadow-sm">
             <path d="M4 7.5h14.5A2.5 2.5 0 0 1 21 10v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7.5Zm0 0V6a2 2 0 0 1 2-2h11" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
             <path d="M16 12h5v4h-5a2 2 0 1 1 0-4Z" fill="currentColor" fillOpacity=".22" stroke="currentColor" strokeWidth="1.5" />
             <circle cx="17" cy="14" r=".8" fill="currentColor" />
           </svg>
-          <span className="text-sm font-extrabold tracking-wide text-white drop-shadow-sm">
+          <span className="text-xs font-extrabold tracking-wide text-white drop-shadow-sm">
             {available === undefined ? "—" : formatPaise(available, { withSymbol: false })}
           </span>
         </Link>
 
-        {/* referral (coins) balance -> redeem */}
+        {/* Compact Referral balance chip */}
         <Link
           to="/redeem"
           aria-label="Referral balance"
-          className="flex min-w-[82px] items-center justify-center gap-1.5 rounded-full border border-sky-300/80 bg-gradient-to-b from-sky-400 via-sky-500 to-blue-600 px-3 py-2 text-white shadow-[0_0_16px_rgba(56,189,248,.45),inset_0_1px_2px_rgba(255,255,255,.45)] transition-transform active:scale-95"
+          className="flex min-w-[68px] items-center justify-center gap-1 rounded-full border border-sky-300/80 bg-gradient-to-b from-sky-400 via-sky-500 to-blue-600 px-2 py-1.5 text-white shadow-[0_0_10px_rgba(56,189,248,.35)] transition-transform active:scale-95"
         >
-          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-5 w-5 shrink-0 drop-shadow-sm">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-4 w-4 shrink-0 drop-shadow-sm">
             <path d="M3.5 10h17v10h-17zM2.5 7h19v3h-19zM12 7v13" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
             <path d="M12 7c-3.8 0-5.2-1.2-4.4-2.7C8.8 2.2 11.3 4.8 12 7Zm0 0c3.8 0 5.2-1.2 4.4-2.7C15.2 2.2 12.7 4.8 12 7Z" fill="currentColor" fillOpacity=".35" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
           </svg>
-          <span className="text-sm font-extrabold tracking-wide text-white drop-shadow-sm">
+          <span className="text-xs font-extrabold tracking-wide text-white drop-shadow-sm">
             {formatPaise(wallet?.referralPaise ?? 0, { withSymbol: false })}
           </span>
         </Link>

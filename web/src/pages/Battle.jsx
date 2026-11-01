@@ -365,12 +365,14 @@ export default function Battle() {
                 <p className="rounded-xl bg-indigo-50 px-3 py-2.5 text-xs font-bold text-indigo-700">
                   Click 'Start' to accept and deduct {formatPaise(c.stake)} from both wallets to start the match.
                 </p>
-                <Button className="w-full bg-emerald-600 text-white font-bold" onClick={() => accept(c.id)} loading={busy === "accept"} disabled={busy === "accept"}>
-                  Start Battle
-                </Button>
-                <Button variant="ghost" className="w-full text-rose-600 font-bold" onClick={() => rejectJoin(c.id)} loading={busy === "reject"}>
-                  Reject Request
-                </Button>
+                <div className="flex justify-center gap-2">
+                  <Button className="min-w-28 bg-emerald-600 px-4 py-2 text-white font-bold" onClick={() => accept(c.id)} loading={busy === "accept"} disabled={busy === "accept" || busy === "reject"}>
+                    Start
+                  </Button>
+                  <Button variant="ghost" className="min-w-28 px-4 py-2 text-rose-600 font-bold" onClick={() => rejectJoin(c.id)} loading={busy === "reject"} disabled={busy === "accept" || busy === "reject"}>
+                    Reject
+                  </Button>
+                </div>
               </div>
             ) : (
               <p className="rounded-xl bg-amber-50 px-3 py-2.5 text-xs font-bold text-amber-700">

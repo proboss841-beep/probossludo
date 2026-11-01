@@ -40,13 +40,15 @@ export function useIsInstalled() {
 }
 
 /**
- * Does the APK exist on this deployment? The public/ directory serves it at
- * /app.apk once the android/build-apk.sh output is deployed; before that the
- * download page should say "coming soon" instead of a dead button.
+ * Does the APK exist on this deployment? The public/ directory serves it once
+ * the android/build-apk.sh output is deployed; before that the download page
+ * should say "coming soon" instead of a dead button.
+ *
+ * @param {string} [url="/app.apk"] which public path to probe
  */
-export async function apkAvailable() {
+export async function apkAvailable(url = "/app.apk") {
   try {
-    const res = await fetch("/app.apk", { method: "HEAD" });
+    const res = await fetch(url, { method: "HEAD" });
     return res.ok;
   } catch {
     return false;

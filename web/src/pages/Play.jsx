@@ -5,7 +5,7 @@ import { api } from "../lib/api.js";
 import { socket } from "../lib/socket.js";
 import { computePrize, formatPaise, rupeesToPaise } from "../lib/money.js";
 import { useToast } from "../components/Toast.jsx";
-import { Button, Empty, SectionTitle, Skeleton } from "../components/ui.jsx";
+import { Button, Empty, Skeleton } from "../components/ui.jsx";
 
 const MAX_SEARCHING_BATTLES = 2;
 const MIN_AMOUNT = 50;
@@ -31,6 +31,7 @@ export default function Play() {
 
   const [betAmount, setBetAmount] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
+  const [busyBattleAction, setBusyBattleAction] = useState(null);
   const [createError, setCreateError] = useState("");
   const [demoHour, setDemoHour] = useState(() => Math.floor(Date.now() / 3_600_000));
 
@@ -113,7 +114,6 @@ export default function Play() {
     return (c.resultReports || []).some((r) => String(r.userId) === String(me?.userId));
   };
 
-  // Guard: checks if user is already in an active/running match
   const myActiveBattle = useMemo(
     () =>
       myBattles.find((c) => {
@@ -136,30 +136,22 @@ export default function Play() {
     );
   }, [openBattles, myBattles]);
 
+  const demoBattles = useMemo(() => createDemoBattles(demoHour), [demoHour]);
+
   const runningBattles = useMemo(() => {
     // real battles: everyone's live battles from the global /contests/running
     const real = (running.data?.items || []).filter((c) => RUNNING_STATUSES.includes(c.status));
-
-    // the viewer's own battles (the ones showing VIEW) always go on top
     real.sort((a, b) => {
       const aMine = isMine(a) ? 0 : 1;
       const bMine = isMine(b) ? 0 : 1;
       if (aMine !== bMine) return aMine - bMine;
       return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
     });
-
     // wait for the first real load so the fake list doesn't fight the skeletons
     if (running.data === undefined) return real;
-
     // demo battles fill the rest of the list (after any real ones)
     return [...real, ...demoBattles];
   }, [running.data, demoBattles]);
-  const demoBattles = useMemo(() => createDemoBattles(demoHour), [demoHour]);
-  const previewPaise = useMemo(() => {
-    const amt = Number(betAmount);
-    if (!Number.isFinite(amt) || amt < MIN_AMOUNT || amt > MAX_AMOUNT || amt % AMOUNT_STEP !== 0) return null;
-    return { stake: rupeesToPaise(amt), ...computePrize(rupeesToPaise(amt)) };
-  }, [betAmount]);
 
   function invalidate() {
     qc.invalidateQueries({ queryKey: ["contests"] });
@@ -196,7 +188,6 @@ export default function Play() {
       return;
     }
 
-    // wallet guard: never allow an open bet higher than the available balance
     const availablePaise = Number(wallet.data?.availablePaise) || 0;
     if (stake > availablePaise) {
       const msg = `Insufficient balance: ₹${amt} entry fee is more than your ₹${formatPaise(availablePaise, { withSymbol: false })} balance.`;
@@ -230,8 +221,6 @@ export default function Play() {
       return;
     }
 
-    // wallet guard: a player cannot join a battle whose entry fee exceeds the
-    // balance available in their account.
     const availablePaise = Number(wallet.data?.availablePaise) || 0;
     const stakePaise = Number(battle?.stake) || 0;
     if (stakePaise > availablePaise) {
@@ -242,6 +231,7 @@ export default function Play() {
 
     try {
       setActionLoading(true);
+      setBusyBattleAction({ id: battle.id, action: "join" });
       await api(`/contests/${battle.id}/join`, { method: "POST" });
       invalidate();
     } catch (err) {
@@ -259,25 +249,29 @@ export default function Play() {
       }
     } finally {
       setActionLoading(false);
+      setBusyBattleAction(null);
     }
   }
 
   async function cancelBattle(battleId) {
     try {
       setActionLoading(true);
+      setBusyBattleAction({ id: battleId, action: "cancel" });
       await api(`/contests/${battleId}/cancel`, { method: "POST" });
       toast.error("Battle cancelled");
       invalidate();
     } catch (err) {
-      // Handle silently or minimal error
+      // Handle silently
     } finally {
       setActionLoading(false);
+      setBusyBattleAction(null);
     }
   }
 
   async function startBattle(battleId) {
     try {
       setActionLoading(true);
+      setBusyBattleAction({ id: battleId, action: "start" });
       await api(`/contests/${battleId}/start`, { method: "POST" });
       invalidate();
       navigate(`/battle/${battleId}`);
@@ -285,49 +279,56 @@ export default function Play() {
       invalidate();
     } finally {
       setActionLoading(false);
+      setBusyBattleAction(null);
     }
   }
 
   async function rejectRequest(battleId) {
     try {
       setActionLoading(true);
+      setBusyBattleAction({ id: battleId, action: "reject" });
       await api(`/contests/${battleId}/reject`, { method: "POST" });
       invalidate();
     } catch (err) {
       // Handle silently
     } finally {
       setActionLoading(false);
+      setBusyBattleAction(null);
     }
   }
 
   function getOpenAction(c) {
+    const isBusy = busyBattleAction?.id === c.id;
     if (c.status === "join_requested") {
       if (creatorOf(c)?.isYou) {
+        if (isBusy) return <BattleActionSpinner label="Starting battle" />;
         return (
-          <div className="flex flex-col gap-1">
-            <Button variant="success" className="px-2.5 py-1 text-[10px]" disabled={actionLoading} onClick={() => startBattle(c.id)}>
-              START
+          <div className="flex items-center justify-center gap-1.5">
+            <Button variant="success" className="!rounded-lg !px-2.5 !py-1.5 !text-[10px]" disabled={actionLoading} onClick={() => startBattle(c.id)}>
+              Start
             </Button>
-            <Button variant="danger" className="px-2.5 py-1 text-[10px]" disabled={actionLoading} onClick={() => rejectRequest(c.id)}>
-              REJECT
+            <Button variant="danger" className="!rounded-lg !px-2.5 !py-1.5 !text-[10px]" disabled={actionLoading} onClick={() => rejectRequest(c.id)}>
+              Reject
             </Button>
           </div>
         );
       }
       if (opponentOf(c)?.isYou) {
-        return <LoadingIndicator label="WAITING" />;
+        return <BattleActionSpinner label="WAIT" />;
       }
     }
 
     if (c.status === "open" && creatorOf(c)?.isYou) {
-      return <LoadingIndicator />;
+      return <BattleActionSpinner />;
     }
 
     if (c.status === "open") {
+      if (isBusy) return <BattleActionSpinner label="Joining battle" />;
       return (
         <Button
           variant="success"
-          className="px-3 py-1.5 text-[11px]"
+          aria-label={`Play battle for ${formatPaise(c.stake)}`}
+          className="!h-16 !w-16 !border-[3px] !border-[#147bff] !bg-[#020817] !p-0 animate-pulse text-[11px] font-black text-white shadow-[0_0_0_3px_rgba(20,123,255,.18),0_0_18px_rgba(20,123,255,.45)] hover:!bg-[#071a36] motion-reduce:animate-none"
           disabled={actionLoading}
           onClick={() => joinMatch(c)}
         >
@@ -348,10 +349,20 @@ export default function Play() {
         data-purpose="promo-banner"
       >
         <div className="space-y-1.5 text-center text-[12px] font-bold leading-relaxed tracking-tight text-white sm:text-[13px]">
-          <p>
-           Proboss Ludo वेबसाइट पर आपका हार्दिक स्वागत है, दोस्तों, Withdrawal में कोई प्रोब्लम नहीं है (Super Fast Withdrawal ⏩)।
-          </p>
-          {supportNumber ? (
+          {supportSettings.isLoading ? (
+            <Skeleton className="mx-auto h-4 w-4/5 bg-white/20" />
+          ) : supportSettings.isError ? (
+            <p role="status">Notice is temporarily unavailable.</p>
+          ) : supportSettings.data?.battleNotice ? (
+            <p>{supportSettings.data.battleNotice}</p>
+          ) : (
+            <p>Proboss Ludo वेबसाइट पर आपका हार्दिक स्वागत है, दोस्तों, Withdrawal में कोई प्रोब्लम नहीं है (Super Fast Withdrawal ⏭️) !</p>
+          )}
+          {supportSettings.isLoading ? (
+            <Skeleton className="mx-auto h-4 w-36 bg-white/20" />
+          ) : supportSettings.isError ? (
+            <p role="status" className="font-extrabold text-[#55baff]">🙏 Support temporarily unavailable</p>
+          ) : supportNumber ? (
             <a
               href={supportWhatsappUrl}
               target="_blank"
@@ -361,16 +372,14 @@ export default function Play() {
               🙏 Support no ☎️ +{supportNumber}
             </a>
           ) : (
-            <p className="font-extrabold text-[#55baff]">🙏 Support no ☎️</p>
+            <p className="font-extrabold text-[#55baff]">🙏 Support no ☎️ +8764892841</p>
           )}
         </div>
       </section>
 
-      <div className="flex justify-center">
-        <h2 className="flex items-center gap-2 text-base font-black tracking-tight text-ink">
-          <span aria-hidden="true">⚔️</span>
-          Create Battle
-          <span aria-hidden="true">⚔️</span>
+      <div>
+        <h2 className="text-center text-lg font-black tracking-wider uppercase text-transparent bg-clip-text bg-gradient-to-r from-[#55baff] to-[#f41468] drop-shadow-[0_0_12px_rgba(85,186,255,0.4)] mb-2 flex items-center justify-center gap-2">
+          <span>⚔️</span> Create Battle <span>⚔️</span>
         </h2>
       </div>
 
@@ -407,19 +416,18 @@ export default function Play() {
 
         {createError && <p role="alert" className="px-3 pt-2 text-xs font-bold text-rose-600">{createError}</p>}
 
-        <p className="px-3 pb-1 pt-2 text-[11px] font-semibold text-slate-500">
-          Min ₹{MIN_AMOUNT} · Max ₹{MAX_AMOUNT.toLocaleString("en-IN")} · multiples of ₹{AMOUNT_STEP}
-          {previewPaise && (
-            <>
-              {" · "}
-              <span className="font-bold text-brand-600">winner gets {formatPaise(previewPaise.prizePaise)}</span>
-            </>
-          )}
-        </p>
+        <div className="flex items-center justify-end px-3 pb-1 pt-2">
+          <span className="text-[11px] font-semibold text-slate-500">Min ₹50- Max ₹ 1 Lakh</span>
+        </div>
       </div>
 
       <div>
-        <SectionTitle title="Open Battles" action={<span className="text-[11px] font-bold text-slate-400">⚔️ live</span>} />
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-lg font-black tracking-wider uppercase text-transparent bg-clip-text bg-gradient-to-r from-[#55baff] to-[#f41468] drop-shadow-[0_0_12px_rgba(244,20,104,0.4)]">
+            Open Battles
+          </h2>
+          <span className="text-xs font-bold text-white flex items-center gap-1">⚔️ live</span>
+        </div>
         <div className="mt-2 flex flex-col gap-3">
           {loading && <Skeleton className="h-24 w-full" />}
           {!loading && visibleOpenBattles.length === 0 && <Empty title="No Battles Live" hint="Create one above to get started." />}
@@ -444,7 +452,12 @@ export default function Play() {
       <div className="h-[3px] rounded-full bg-gray-200" />
 
       <div>
-        <SectionTitle title="Running Battles" action={<span className="text-[11px] font-bold text-slate-400">⚔️ live</span>} />
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-lg font-black tracking-wider uppercase text-transparent bg-clip-text bg-gradient-to-r from-[#55baff] to-[#f41468] drop-shadow-[0_0_12px_rgba(85,186,255,0.4)]">
+            Running Battles
+          </h2>
+          <span className="text-xs font-bold text-white flex items-center gap-1">⚔️ live</span>
+        </div>
         <div className="mt-2 flex flex-col gap-3">
           {!loading && runningBattles.length === 0 && demoBattles.length === 0 && <Empty title="No Running Battles" />}
 
@@ -471,32 +484,48 @@ export default function Play() {
 
 function OpenCard({ battle, action, onCancel, cancelDisabled }) {
   const creator = creatorOf(battle);
+  const hasMiddleActions = battle.status === "join_requested" && creator?.isYou;
+  const prize = battle.prize ?? computePrize(battle.stake).prizePaise;
   return (
-    <article className="overflow-hidden rounded-2xl border border-[#f41468]/70 bg-[#1a082a] shadow-[0_0_14px_rgba(244,20,104,.12)]">
-      <div className="relative flex min-h-10 items-center gap-2 border-b border-[#f41468]/30 bg-[#321043] px-3 py-2">
-        <h3 className="text-[11px] font-semibold text-white/75">Challenge From</h3>
-        <h3 className={`truncate text-[12px] font-black text-white ${onCancel ? "pr-10" : ""}`}>{creator?.name || "Player"}</h3>
-        {onCancel && (
-          <button
-            type="button"
-            aria-label={battle.status === "join_requested" ? "Withdraw join request" : "Cancel open battle"}
-            title={battle.status === "join_requested" ? "Withdraw join request" : "Cancel open battle"}
-            disabled={cancelDisabled}
-            onClick={onCancel}
-            className="absolute right-2 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-white text-[#f41468] shadow-md ring-1 ring-[#f41468]/40 transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-4 w-4" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round">
-              <path d="m6 6 12 12M18 6 6 18" />
-            </svg>
-          </button>
-        )}
+    <article className={`relative grid min-h-24 grid-cols-[2.5rem_minmax(0,1fr)_4rem] ${hasMiddleActions ? "grid-rows-[auto_auto_auto]" : "grid-rows-[auto_auto]"} items-center gap-x-1.5 gap-y-1.5 overflow-hidden rounded-[1.15rem] border border-[#145bb5] bg-[radial-gradient(ellipse_at_95%_100%,rgba(0,105,255,.38),transparent_42%),linear-gradient(110deg,#020617_0%,#030712_70%,#071a36_100%)] p-2 shadow-[0_0_14px_rgba(20,93,190,.18)]`}>
+      <div className={`col-start-1 row-start-1 ${hasMiddleActions ? "row-span-3" : "row-span-2"} flex items-center justify-center`}>
+        <svg aria-hidden="true" viewBox="0 0 48 56" className="h-10 w-9 drop-shadow-[0_0_8px_rgba(245,158,11,.4)]">
+          <path d="M12 5h24v7c0 12-4 19-12 22-8-3-12-10-12-22V5Z" fill="#b7790b" stroke="#fbbf24" strokeWidth="2" />
+          <path d="M12 10H4v5c0 8 4 12 12 13M36 10h8v5c0 8-4 12-12 13" fill="none" stroke="#fbbf24" strokeWidth="3" strokeLinecap="round" />
+          <path d="M24 34v9m-9 5h18m-15-5h12" fill="none" stroke="#fbbf24" strokeWidth="4" strokeLinecap="round" />
+          <path d="m24 12 1.8 4 4.4.4-3.3 2.8 1 4.2-3.9-2.2-3.9 2.2 1-4.2-3.3-2.8 4.4-.4L24 12Z" fill="#fff1a8" />
+        </svg>
       </div>
-
-      <div className="grid grid-cols-3 items-center gap-2 px-3 py-3">
-        <MoneyBlock label="Entry Fee" value={battle.stake} />
-        <div className="flex shrink-0 justify-center">{action}</div>
-        <MoneyBlock label="Winning" value={battle.prize ?? computePrize(battle.stake).prizePaise} right />
+      <div className="col-start-2 row-start-1 flex min-w-0 items-center gap-2 pr-5">
+        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-blue-500/80 bg-blue-950/70 px-2 py-1 text-[10px] font-bold text-white">
+          <span className="h-2 w-2 rounded-full bg-sky-300 shadow-[0_0_8px_rgba(125,211,252,.9)]" />
+          {battle.status === "join_requested" ? "Request" : "Live"}
+        </span>
+        <h3 className="truncate text-[13px] font-black text-white">{creator?.name || "Player"}</h3>
       </div>
+      <div className={`col-start-2 row-start-2 flex min-w-0 items-center ${hasMiddleActions ? "justify-between gap-4" : "gap-2"}`}>
+        <MoneyBlock label="Entry Fee" value={battle.stake} compact={hasMiddleActions} />
+        {!hasMiddleActions && <div className="h-9 w-px shrink-0 bg-blue-300/50" />}
+        <MoneyBlock label="Winning Prize" value={prize} compact={hasMiddleActions} />
+      </div>
+      {hasMiddleActions && <div className="col-start-2 row-start-3 flex justify-center">{action}</div>}
+      <div className={`col-start-3 row-start-1 ${hasMiddleActions ? "row-span-3" : "row-span-2"} flex translate-y-3 items-center justify-center`}>
+        {!hasMiddleActions && action}
+      </div>
+      {onCancel && (
+        <button
+          type="button"
+          aria-label={battle.status === "join_requested" ? "Withdraw join request" : "Cancel open battle"}
+          title={battle.status === "join_requested" ? "Withdraw join request" : "Cancel open battle"}
+          disabled={cancelDisabled}
+          onClick={onCancel}
+          className="absolute right-2 top-2 z-10 flex h-6 w-6 items-center justify-center rounded-full border border-blue-400/70 bg-[#061329] text-white shadow-[0_0_8px_rgba(20,123,255,.45)] transition hover:bg-blue-900 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-3.5 w-3.5" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round">
+            <path d="m6 6 12 12M18 6 6 18" />
+          </svg>
+        </button>
+      )}
     </article>
   );
 }
@@ -508,120 +537,87 @@ function MatchCard({ battle, onClick }) {
   const isPending = status === "result_submitted" || status === "cancel_requested";
   const mine = isMine(battle);
 
-  const creatorName = creatorOf(battle)?.name || "Player";
-  const opponentName = opponentOf(battle)?.name || "Opponent";
-  const prize = battle.prize ?? computePrize(battle.stake).prizePaise;
-
   return (
-    <article
+    <RunningBattleCard
+      battle={battle}
+      playerNames={[creatorOf(battle)?.name || "Player", opponentOf(battle)?.name || "Opponent"]}
       onClick={onClick}
-      className={`cursor-pointer overflow-hidden rounded-2xl border bg-[#1a082a] shadow-[0_0_14px_rgba(244,20,104,.12)] transition active:scale-[0.99] ${
-        isPending ? "border-orange-300/70" : "border-[#f41468]/60"
-      }`}
-    >
-      <div className="flex items-center justify-between gap-2 border-b border-[#f41468]/30 bg-[#321043] px-3 py-1.5">
-        <div className="flex min-w-0 items-center gap-1.5">
-          <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-white/75">Playing For</span>
-          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-300 via-brand-500 to-[#C98509] text-[10px] font-black text-white shadow-sm">
-            ₹
-          </span>
-          <span className="truncate text-xs font-black text-white">{formatPaise(battle.stake, { withSymbol: false })}</span>
-        </div>
-
-        <div className="flex min-w-0 items-center gap-1.5">
-          <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-white/75">Prize</span>
-          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-300 via-brand-500 to-[#C98509] text-[10px] font-black text-white shadow-sm">
-            ₹
-          </span>
-          <span className="truncate text-xs font-black text-white">{formatPaise(prize, { withSymbol: false })}</span>
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between gap-2 bg-[#1a082a] px-8 py-2.5">
-        <PlayerAvatar name={creatorName} />
-
-        <div className="flex shrink-0 items-center justify-center">
-          {mine ? (
-            isPending ? (
-              <span className="rounded-full bg-orange-500 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-white shadow-md shadow-orange-500/20">
-                Pending
-              </span>
-            ) : (
-              <span className="rounded-full bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-1 text-[10px] font-black uppercase tracking-wide text-white shadow-md shadow-indigo-500/25">
-                VIEW
-              </span>
-            )
-          ) : (
-            <img
-              src="/battle-vs.png"
-              alt="versus"
-              className="h-14 w-14 object-contain drop-shadow-[0_0_8px_rgba(244,20,104,.2)]"
-            />
-          )}
-        </div>
-
-        <PlayerAvatar name={opponentName} />
-      </div>
-    </article>
+      statusLabel={mine ? (isPending ? "Pending" : "View") : null}
+      pending={isPending}
+    />
   );
 }
 
 function DemoMatchCard({ battle }) {
   return (
-    <article className="cursor-pointer overflow-hidden rounded-2xl border border-[#f41468]/60 bg-[#1a082a] shadow-[0_0_14px_rgba(244,20,104,.12)] transition active:scale-[0.99]">
-      <div className="flex items-center justify-between gap-2 border-b border-[#f41468]/30 bg-[#321043] px-3 py-1.5">
-        <div className="flex min-w-0 items-center gap-1.5">
-          <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-white/75">Playing For</span>
-          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-300 via-brand-500 to-[#C98509] text-[10px] font-black text-white shadow-sm">₹</span>
-          <span className="truncate text-xs font-black text-white">{formatPaise(battle.stake, { withSymbol: false })}</span>
+    <RunningBattleCard battle={battle} playerNames={battle.players} />
+  );
+}
+
+function RunningBattleCard({ battle, playerNames, onClick, statusLabel, pending = false }) {
+  const [creatorName, opponentName] = playerNames;
+  const prize = battle.prize ?? computePrize(battle.stake).prizePaise;
+  return (
+    <article
+      onClick={onClick}
+      className={`min-h-[5.75rem] overflow-hidden rounded-[1.15rem] border bg-[linear-gradient(145deg,#140a35_0%,#0d0927_55%,#130a35_100%)] p-2 shadow-[0_0_14px_rgba(91,33,182,.18)] ${
+        onClick ? "cursor-pointer transition active:scale-[0.99]" : ""
+      } ${pending ? "border-orange-300/70" : "border-violet-500/50"}`}
+    >
+      <div className="flex min-h-[2rem] min-w-0 items-center justify-between gap-2.5 border-b border-white/10 px-2 pb-2">
+        <span className="shrink-0 text-xs font-bold text-white sm:text-sm">Playing For</span>
+        
+        <div className="flex min-w-0 items-center justify-center gap-1.5 rounded-full border border-violet-400/30 bg-gradient-to-b from-[#291566] to-[#170b43] px-3 py-1 shadow-[inset_0_1px_6px_rgba(167,139,250,.15)] mx-auto">
+          <span className="max-w-[25vw] truncate text-xs font-black text-white sm:max-w-32">{creatorName}</span>
+          <span aria-hidden="true" className="shrink-0 text-xs font-black text-pink-400">&amp;</span>
+          <span className="max-w-[25vw] truncate text-xs font-black text-white sm:max-w-32">{opponentName}</span>
         </div>
-        <div className="flex min-w-0 items-center gap-1.5">
-          <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-white/75">Prize</span>
-          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-300 via-brand-500 to-[#C98509] text-[10px] font-black text-white shadow-sm">₹</span>
-          <span className="truncate text-xs font-black text-white">{formatPaise(battle.prize, { withSymbol: false })}</span>
+
+        <div className="flex shrink-0 items-center gap-1 rounded-full bg-rose-600/80 px-2 py-0.5 shadow-[0_0_8px_rgba(244,20,104,0.6)] animate-pulse">
+          <span className="h-1.5 w-1.5 rounded-full bg-white"></span>
+          <span className="text-[9px] font-black tracking-wider text-white">LIVE</span>
         </div>
       </div>
 
-      <div className="flex items-center justify-between gap-2 bg-[#1a082a] px-8 py-2.5">
-        <PlayerAvatar name={battle.players[0]} />
-
-        <div className="flex shrink-0 items-center justify-center">
+      <div className="mt-2 grid grid-cols-[minmax(0,1fr)_3rem_minmax(0,1fr)] items-center gap-2 px-1 sm:px-2">
+        <RunningBattlePrize label="ENTRY FEE" value={battle.stake} />
+        <div className="flex flex-col items-center justify-center">
           <img
             src="/battle-vs.png"
             alt="versus"
-            className="h-14 w-14 object-contain drop-shadow-[0_0_8px_rgba(244,20,104,.2)]"
+            className="h-9 w-9 object-contain drop-shadow-[0_0_8px_rgba(244,20,104,.2)] sm:h-10 sm:w-10"
           />
+          {statusLabel && (
+            <span className={`mt-0.5 rounded-full px-2 py-0.5 text-[8px] font-black uppercase tracking-wide text-white ${
+              pending ? "bg-orange-500" : "bg-indigo-600"
+            }`}>
+              {statusLabel}
+            </span>
+          )}
         </div>
-
-        <PlayerAvatar name={battle.players[1]} />
+        <RunningBattlePrize label="WINNING PRIZE" value={prize} />
       </div>
     </article>
   );
 }
 
-function PlayerAvatar({ name }) {
-  const safeName = String(name || "Player").trim() || "Player";
-
+function RunningBattlePrize({ label, value }) {
   return (
-    <div className="flex min-w-0 flex-col items-center gap-1">
-      <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-indigo-50 shadow ring-2 ring-white">
-        <img
-          src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(safeName)}`}
-          alt={safeName}
-          loading="lazy"
-          className="h-full w-full object-cover"
-        />
-      </div>
-      <p className="w-full truncate text-center text-[10px] font-bold text-white">{safeName}</p>
+    <div className="flex min-w-0 flex-col items-center justify-center rounded-[1rem] border border-violet-400/15 bg-gradient-to-b from-[#26145d] to-[#170d3e] px-2 py-1.5 shadow-[inset_0_1px_8px_rgba(167,139,250,.1)]">
+      <span className="text-center text-[9px] font-semibold text-white/90 sm:text-[10px]">{label}</span>
+      <span className="mt-0.5 flex items-center gap-0.5 text-sm font-black leading-none text-white sm:text-base">
+        <span aria-hidden="true" className="text-base font-black text-sky-400 sm:text-lg">₹</span>
+        <span className="truncate">{formatPaise(value || 0, { withSymbol: false })}</span>
+      </span>
     </div>
   );
 }
 
-function MoneyBlock({ label, value, right = false }) {
+function MoneyBlock({ label, value, right = false, compact = false }) {
   return (
-    <div className={right ? "text-right" : "text-left"}>
-      <p className="text-[11px] font-medium text-white/75">{label}</p>
-      <p className="mt-0.5 text-sm font-black text-white">{formatPaise(value || 0)}</p>
+    <div className={`min-w-0 ${right ? "text-right" : "text-left"}`}>
+      <p className={`font-medium text-white/75 ${compact ? "whitespace-nowrap text-[9px] leading-tight" : "text-[11px]"}`}>{label}</p>
+      <p className={`mt-0.5 truncate font-black text-white ${compact ? "text-[11px]" : "text-sm"}`}>{formatPaise(value || 0)}</p>
     </div>
   );
 }
@@ -631,6 +627,15 @@ function LoadingIndicator({ label }) {
     <div role="status" aria-label={label || "Waiting for an opponent"} className={`flex items-center justify-center ${label ? "gap-1.5" : ""}`}>
       <img src="/loading-spinner.png" alt="" aria-hidden="true" className="h-10 w-10 animate-spin object-contain" />
       {label && <p className="text-[10px] font-bold text-white/80">{label}</p>}
+    </div>
+  );
+}
+
+function BattleActionSpinner({ label }) {
+  return (
+    <div role="status" aria-label={label || "Waiting for an opponent"} className="flex flex-col items-center justify-center gap-1">
+      <img src="/loading-spinner.png" alt="" aria-hidden="true" className="h-12 w-12 animate-spin object-contain" />
+      {label && <span className="text-[8px] font-bold uppercase tracking-wide text-white/75">{label}</span>}
     </div>
   );
 }

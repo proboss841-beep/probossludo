@@ -62,7 +62,9 @@ echo "==> Done -> $OUT/PROBOSS-LUDO.apk"
 "$BT/apksigner" verify "$OUT/PROBOSS-LUDO.apk" && echo "    signature OK"
 
 if [ -d "$WEB_PUBLIC" ]; then
+  cp "$OUT/PROBOSS-LUDO.apk" "$WEB_PUBLIC/probossludo.apk"
+  echo "==> Copied to web/public/probossludo.apk (dowloadable from the site)"
+  # legacy alias — some deployments still reference /app.apk
   cp "$OUT/PROBOSS-LUDO.apk" "$WEB_PUBLIC/app.apk"
-  echo "==> Copied to web/public/app.apk (dowloadable from the site)"
 fi
 ls -lh "$OUT/PROBOSS-LUDO.apk"

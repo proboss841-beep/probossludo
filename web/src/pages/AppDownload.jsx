@@ -1,46 +1,73 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Panel } from "../components/ui.jsx";
-import { isInstalled, isInApp, apkAvailable } from "../lib/installApp.js";
+import { isInstalled, apkAvailable } from "../lib/installApp.js";
 
 /**
- * App Download — installs the PROBOSS LUDO Android wrapper (APK).
+ * App Download — Direct APK Download Feature.
  *
- * The app is just this same website inside a WebView, so every change you make
- * to the website shows up in the app automatically. Once the APK is deployed
- * to /app.apk the button below downloads it; inside the app itself the button
- * is hidden (no point re-downloading an installed app).
+ * The Android app is just this same website inside a WebView, so every change
+ * you make to the website shows up in the app automatically. Once the APK is
+ * deployed to /probossludo.apk the button below downloads it; inside the app
+ * itself the button is hidden (no point re-downloading an installed app).
  */
 export default function AppDownload() {
   const [available, setAvailable] = useState(null); // null = checking
   const [installed, setInstalled] = useState(isInstalled());
 
   useEffect(() => {
-    apkAvailable().then(setAvailable).catch(() => setAvailable(false));
+    apkAvailable("/probossludo.apk").then(setAvailable).catch(() => setAvailable(false));
   }, []);
 
   return (
     <div className="flex flex-col gap-4">
       <Panel title="Download the Proboss Ludo app">
         <div className="flex flex-col items-center gap-3 py-4 text-center">
-          <img src="/logo.png" alt="Proboss Ludo" className="h-20 w-20 object-contain drop-shadow-[0_0_14px_rgba(244,20,104,.35)]" />
+          {/* Proboss Logo */}
+          <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-slate-900/5 p-2 shadow-inner">
+            <img
+              src="/logo.png"
+              alt="Proboss Ludo"
+              className="h-full w-full object-contain drop-shadow-[0_0_12px_rgba(244,20,104,.3)]"
+            />
+          </div>
+
           <p className="text-lg font-black tracking-tight text-ink">Proboss Ludo for Android</p>
+
           <p className="max-w-xs text-xs font-semibold text-slate-500">
             {installed
               ? "You are already running the app — everything on the website also works in the app, and updates arrive automatically."
-              : "Download the app and play anywhere. Deposits and withdrawals work exactly like the website."}
+              : "Download the official Android app and play anywhere. Fast, secure, and smooth gameplay experience!"}
           </p>
 
-          {!installed && available !== false && (
+          {!installed && available === true && (
+            /* Direct APK Download Button */
             <a
-              href="/app.apk"
-              download
-              className="mt-1 inline-flex items-center gap-2 rounded-full bg-[#55baff] px-8 py-3 text-sm font-extrabold uppercase tracking-wide text-[#1a082a] shadow-[0_0_18px_rgba(85,186,255,.45)] transition-all hover:bg-[#36a9f7] active:scale-95"
+              href="/probossludo.apk"
+              download="probossludo.apk"
+              className="mt-2 inline-flex flex-col items-center justify-center rounded-full border-2 border-[#1E1E1E] bg-[#FEF0B6] px-6 py-2 shadow-md transition-all hover:brightness-95 active:scale-95 cursor-pointer"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v12m0 0l-4.5-4.5M12 16l4.5-4.5M4 20h16" />
-              </svg>
-              Download App
+              {/* Green Circle Badge with Live Bouncing Download Icon */}
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#48C79C] text-white animate-bounce shadow-sm">
+                <svg
+                  className="h-4 w-4 stroke-[3]"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2.5"
+                    d="M19 14l-7 7m0 0l-7-7m7 7V3"
+                  />
+                </svg>
+              </div>
+
+              {/* Text Label Stacked Below Arrow */}
+              <span className="mt-1 text-xs font-black tracking-tight text-[#1E1E1E]">
+                Download
+              </span>
             </a>
           )}
 
