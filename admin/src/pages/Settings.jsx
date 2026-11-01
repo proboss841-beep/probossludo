@@ -77,6 +77,8 @@ function PlatformSettings({ isSuperadmin, qc, toast }) {
         gatewayMax: toRupees(settings.data.depositGatewayMaxPaise),
         maintenanceMode: Boolean(settings.data.maintenanceMode),
         supportWhatsapp: settings.data.supportWhatsapp || "",
+        withdrawalsEnabled: settings.data.withdrawalsEnabled !== false,
+        withdrawalNote: settings.data.withdrawalNote || "",
       });
     }
   }, [settings.data]);
@@ -90,6 +92,8 @@ function PlatformSettings({ isSuperadmin, qc, toast }) {
         depositGatewayMaxPaise: form.gatewayMax ? rupeesToPaise(form.gatewayMax) : undefined,
         maintenanceMode: form.maintenanceMode,
         supportWhatsapp: form.supportWhatsapp.trim(),
+        withdrawalsEnabled: form.withdrawalsEnabled,
+        withdrawalNote: form.withdrawalNote.trim(),
       };
       if (form.depositUpiId.trim()) body.depositUpiId = form.depositUpiId.trim();
       return api("/admin/settings", { method: "POST", body });
@@ -146,6 +150,62 @@ function PlatformSettings({ isSuperadmin, qc, toast }) {
             <p className="text-[11px] text-[#a56a83]">
               Max deposit is currently {formatPaise(settings.data?.depositMaxPaise ?? 0)}.
               {settings.data?.updatedAt ? ` Last updated ${new Date(settings.data.updatedAt).toLocaleString("en-IN")}.` : ""}
+            </p>
+          </div>
+        </Panel>
+
+        <Panel title="Withdrawals">
+          <div className="space-y-3">
+            <label className={`flex cursor-pointer items-center justify-between rounded-xl border border-[#f0c2d8] px-3 py-3 ${isSuperadmin ? "" : "opacity-60"}`}>
+              <span>
+                <span className="block text-sm font-bold text-[#2a1520]">Withdrawals {form.withdrawalsEnabled ? "ON" : "OFF"}</span>
+                <span className="mt-0.5 block text-[11px] font-semibold text-[#a56a83]">
+                  {form.withdrawalsEnabled
+                    ? "Players can request withdrawals."
+                    : "Players see the note below instead of the withdraw form."}
+                </span>
+              </span>
+              {/* toggle switch */}
+              <button
+                type="button"
+                role="switch"
+                aria-checked={form.withdrawalsEnabled}
+                disabled={!isSuperadmin}
+                onClick={() => set({ withdrawalsEnabled: !form.withdrawalsEnabled })}
+                className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                  form.withdrawalsEnabled ? "bg-emerald-500" : "bg-rose-400"
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${
+                    form.withdrawalsEnabled ? "left-[22px]" : "left-0.5"
+                  }`}
+                />
+              </button>
+            </label>
+
+            <div>
+              <label className="mb-1 block text-xs font-bold text-[#2a1520]">
+                Note shown to players while withdrawals are OFF
+              </label>
+              <textarea
+                value={form.withdrawalNote}
+                onChange={(e) => set({ withdrawalNote: e.target.value })}
+                disabled={!isSuperadmin}
+                rows={3}
+                maxLength={300}
+                placeholder="Withdrawals are temporarily disabled. Please try again later."
+                className="w-full resize-none rounded-xl border border-[#f0c2d8] bg-white px-3 py-2.5 text-sm font-semibold text-[#2a1520] outline-none transition-colors placeholder:text-[#c9a0b3] focus:border-[#db2777] disabled:opacity-60"
+              />
+              <p className="mt-1 text-[11px] text-[#a56a83]">
+                {form.withdrawalsEnabled
+                  ? "This note is stored and shown the moment withdrawals are switched off."
+                  : "This is what a player sees when they tap Withdraw right now."}
+              </p>
+            </div>
+
+            <p className="rounded-xl bg-[#fdf1f7] px-3 py-2 text-[11px] font-semibold text-[#7a3d58]">
+              While withdrawals are OFF the withdraw API also rejects requests, so no withdrawal can slip through.
             </p>
           </div>
         </Panel>

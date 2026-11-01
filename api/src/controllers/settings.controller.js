@@ -9,5 +9,8 @@ export async function publicSettings(_req, res) {
   const s = await getSettings();
   res.json({
     supportWhatsapp: s.supportWhatsapp || null,
+    /** shown so the wallet screen can disable/annotate the withdraw button */
+    withdrawalsEnabled: s.withdrawalsEnabled !== false,
+    withdrawalNote: s.withdrawalNote || null,
   });
 }

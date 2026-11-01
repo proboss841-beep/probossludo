@@ -1,4 +1,5 @@
 import { Contest, CONTEST_STATES } from "../db/models/contest.model.js";
+import mongoose from "mongoose";
 import { User } from "../db/models/user.model.js";
 import { withTransaction } from "../db/connect.js";
 import { withLock } from "../db/redis.js";
@@ -109,8 +110,7 @@ async function cancelOtherOpenBattles(userId, excludeContestId) {
   return others.length;
 }
 
-/**
- * Create a searchable battle without touching the creator's wallet. Stakes
+/** Create a searchable battle without touching the creator's wallet. Stakes
  * are held atomically for both players only after the creator starts the match.
  */
 export async function createContest({ userId, stakePaise, ip }) {
@@ -147,11 +147,54 @@ export async function createContest({ userId, stakePaise, ip }) {
   );
 }
 
+/** Admin-created dummy battle — shown in the open lobby, never playable. */
+export async function createDummyContest({ stakePaise, name, mobile }) {
+  if (!isValidStake(stakePaise)) throw new BadRequestError("Unknown amount");
+  const [contest] = await Contest.create([
+    {
+      stake: stakePaise,
+      status: CONTEST_STATES.OPEN,
+      isDummy: true,
+      dummyName: name || "Player",
+      dummyMobile: mobile || null,
+      players: [{ userId: new mongoose.Types.ObjectId(), seat: 1, joinedAt: new Date() }],
+      expiresAt: new Date(Date.now() + 3650 * 24 * 3600 * 1000), // dummies don't expire
+    },
+  ]);
+  await invalidateOpenList();
+  emitContestUpdate(contest);
+  return contest;
+}
+
+export async function listDummyContests() {
+  return Contest.find({ isDummy: true }).sort({ createdAt: -1 }).lean();
+}
+
+export async function deleteDummyContest(id) {
+  const res = await Contest.deleteOne({ _id: id, isDummy: true });
+  await invalidateOpenList();
+  if (!res.deletedCount) throw new NotFoundError("Dummy battle not found");
+  return true;
+}
+
 /** A second player requests to join; no money moves until the creator starts. */
 export async function joinContest({ userId, contestId, ip }) {
   // Adda Ludo guard: no new bets while an active battle is pending
   if (await hasActiveUnsubmittedContest(userId)) {
     throw new ConflictError("You have an active battle. Submit its result before joining a new one");
+  }
+
+  // a dummy (social-proof) battle is never playable. It only disappears for a
+  // player who can actually afford it — so clicking it looks "taken". A player
+  // without enough balance is told they have insufficient funds instead, and
+  // the dummy battle is left in place.
+  const dummy = await Contest.findOne({ _id: contestId, isDummy: true }).select("stake").lean();
+  if (dummy) {
+    await walletService.assertAvailable(userId, dummy.stake); // throws ForbiddenError (insufficient balance)
+    await Contest.deleteOne({ _id: dummy._id });
+    await invalidateOpenList();
+    emitContestUpdate({ _id: dummy._id, status: CONTEST_STATES.CANCELLED, stake: dummy.stake, winnerUserId: null });
+    throw new ConflictError("This battle is no longer available");
   }
 
   return withLock(`contest:${contestId}`, () =>
@@ -633,6 +676,22 @@ export async function listMyContests(userId, { page, limit }) {
   const filter = { "players.userId": userId };
   const [items, total] = await Promise.all([
     Contest.find(filter).sort({ createdAt: -1 }).select("+roomCode").populate("players.userId", "name")
+      .skip((page - 1) * limit).limit(limit),
+    Contest.countDocuments(filter),
+  ]);
+  return { items, total };
+}
+
+export async function listRunningContests({ page, limit }) {
+  const runningStatuses = [
+    CONTEST_STATES.RUNNING,
+    CONTEST_STATES.ROOM_SUBMITTED,
+    CONTEST_STATES.RESULT_SUBMITTED,
+    CONTEST_STATES.CANCEL_REQUESTED,
+  ];
+  const filter = { status: { $in: runningStatuses }, isDummy: { $ne: true } };
+  const [items, total] = await Promise.all([
+    Contest.find(filter).sort({ createdAt: -1 }).populate("players.userId", "name")
       .skip((page - 1) * limit).limit(limit),
     Contest.countDocuments(filter),
   ]);

@@ -11,6 +11,7 @@ import { adminLoginSchema, adminSettleSchema, adminReviewSchema } from "../lib/s
 import {
   validate, adminUserActionSchema, adminKycReviewSchema, adminSettingsSchema,
   adminAccountCreateSchema, adminAccountUpdateSchema, adminAdjustmentSchema,
+  adminDummySchema,
 } from "../validation/extraSchemas.js";
 import { sanitizePermissions } from "../utils/permissions.js";
 import * as contestService from "../services/contest.service.js";
@@ -573,6 +574,38 @@ export async function forceExpire(req, res) {
   res.json({ id: contest._id, status: contest.status });
 }
 
+/* --------------------------- dummy battles --------------------------- */
+
+/** GET /admin/dummy-contests — social-proof battles shown in the open lobby */
+export async function listDummy(_req, res) {
+  const items = await contestService.listDummyContests();
+  res.json({
+    items: items.map((c) => ({
+      id: c._id, stake: c.stake, name: c.dummyName || "Player",
+      mobile: c.dummyMobile || null, createdAt: c.createdAt,
+    })),
+  });
+}
+
+/** POST /admin/dummy-contests — add a dummy battle */
+export async function createDummy(req, res) {
+  const data = validate(adminDummySchema, req.body);
+  const contest = await contestService.createDummyContest({
+    stakePaise: data.stake, name: data.name, mobile: data.mobile,
+  });
+  await writeAudit(req.user.id, "dummy.create", "contest", contest._id, { stake: data.stake });
+  emitAdminRefresh();
+  res.status(201).json({ id: contest._id });
+}
+
+/** DELETE /admin/dummy-contests/:id */
+export async function deleteDummy(req, res) {
+  await contestService.deleteDummyContest(req.params.id);
+  await writeAudit(req.user.id, "dummy.delete", "contest", req.params.id, {});
+  emitAdminRefresh();
+  res.json({ ok: true });
+}
+
 /* --------------------------- ledger & audit --------------------------- */
 
 export async function listLedgerAll(req, res) {
@@ -628,6 +661,8 @@ export async function settingsDetail(_req, res) {
     depositGatewayMaxPaise: s.depositGatewayMaxPaise,
     maintenanceMode: Boolean(s.maintenanceMode),
     supportWhatsapp: s.supportWhatsapp || "",
+    withdrawalsEnabled: s.withdrawalsEnabled !== false,
+    withdrawalNote: s.withdrawalNote || "",
     updatedAt: s.updatedAt,
   });
 }
@@ -647,6 +682,8 @@ export async function updateSettings(req, res) {
   }
   if (data.maintenanceMode !== undefined) s.maintenanceMode = data.maintenanceMode;
   if (data.supportWhatsapp !== undefined) s.supportWhatsapp = data.supportWhatsapp;
+  if (data.withdrawalsEnabled !== undefined) s.withdrawalsEnabled = data.withdrawalsEnabled;
+  if (data.withdrawalNote !== undefined) s.withdrawalNote = data.withdrawalNote;
   s.updatedBy = req.user.id;
   await s.save();
   await writeAudit(req.user.id, "settings.update", "settings", s._id, data);
@@ -657,6 +694,8 @@ export async function updateSettings(req, res) {
     depositGatewayMaxPaise: s.depositGatewayMaxPaise,
     maintenanceMode: s.maintenanceMode,
     supportWhatsapp: s.supportWhatsapp || "",
+    withdrawalsEnabled: s.withdrawalsEnabled !== false,
+    withdrawalNote: s.withdrawalNote || "",
   });
 }
 

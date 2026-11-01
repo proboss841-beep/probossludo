@@ -25,9 +25,9 @@ function contestDto(contest, { userId, includeRoomCode = false } = {}) {
     winnerUserId: contest.winnerUserId || null,
     players: contest.players.map((p) => ({
       seat: p.seat,
-      userId: p.userId?._id || p.userId,
-      name: p.userId?.name || null,
-      isYou: Boolean(userId && String(p.userId._id || p.userId) === String(userId)),
+      userId: p.userId?._id || p.userId || null,
+      name: contest.isDummy && p.seat === 1 ? contest.dummyName : (p.userId?.name || null),
+      isYou: Boolean(userId && p.userId && String(p.userId._id || p.userId) === String(userId)),
     })),
     prize: computePrize(contest.stake).prizePaise, // winner's credit (slab-based, same maths as settlement)
     conflict: contest.conflict?.active ? { raisedBy: contest.conflict.raisedBy } : null,
@@ -49,6 +49,17 @@ export async function listOpen(req, res) {
   const page = Math.max(1, Number(req.query.page) || 1);
   const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 12));
   const { items, total } = await contestService.listOpenContests({ page, limit });
+  await Contest.populate(items, { path: "players.userId", select: "name" });
+  res.json({ items: items.map((c) => contestDto(c, { userId: req.user.id })), total, page, limit });
+}
+
+/** GET /contests/running — every live battle on the platform, visible to ALL users.
+ * Non-participants get the DTO without room codes / result reports (the
+ * participant gate inside contestDto keeps room codes private). */
+export async function listRunning(req, res) {
+  const page = Math.max(1, Number(req.query.page) || 1);
+  const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 20));
+  const { items, total } = await contestService.listRunningContests({ page, limit });
   await Contest.populate(items, { path: "players.userId", select: "name" });
   res.json({ items: items.map((c) => contestDto(c, { userId: req.user.id })), total, page, limit });
 }

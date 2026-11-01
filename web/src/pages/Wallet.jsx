@@ -53,6 +53,12 @@ export default function Wallet() {
   const details = useQuery({ queryKey: ["deposit-details"], queryFn: () => api("/payments/deposit/details") });
   const history = useQuery({ queryKey: ["wallet", "history"], queryFn: () => api("/wallet/history?limit=30") });
   const myDeposits = useQuery({ queryKey: ["deposits", "mine"], queryFn: () => api("/payments/deposits?limit=10") });
+  // withdrawal master switch + note set by the admin (withdraw ON/OFF)
+  const publicSettings = useQuery({
+    queryKey: ["settings", "public"],
+    queryFn: () => api("/settings/public"),
+    staleTime: 60_000,
+  });
 
   const [searchParams, setSearchParams] = useSearchParams();
   const depositId = searchParams.get("deposit");
@@ -102,6 +108,11 @@ export default function Wallet() {
   }, [qc]);
 
   const kycVerified = profile.data?.user?.kycStatus === "verified";
+  // withdrawal rules: admin switch ON + the player must have finished a battle first
+  const withdrawalsEnabled = publicSettings.data?.withdrawalsEnabled !== false;
+  const withdrawalNote = publicSettings.data?.withdrawalNote || "Withdrawals are temporarily disabled. Please try again later.";
+  const battlesPlayed = Number(profile.data?.battlesPlayed || 0);
+  const canWithdraw = kycVerified && withdrawalsEnabled && battlesPlayed >= 1;
 
   /** rupees (string) -> integer paise, with the shared exact-math guard */
   function toPaise(input) {
@@ -354,7 +365,35 @@ export default function Wallet() {
 
         <TabsPanel match={tab} value="withdraw">
           <Panel title="Withdraw funds">
-            {kycVerified ? (
+            {!withdrawalsEnabled ? (
+              /* admin turned withdrawals OFF — show the admin's note, no form */
+              <div className="space-y-3">
+                <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-3 text-center">
+                  <svg className="mx-auto mb-1 h-6 w-6 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v4m0 4h.01M10.3 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.7 3.86a2 2 0 0 0-3.4 0Z" />
+                  </svg>
+                  <p className="text-sm font-black text-rose-700">Withdrawals are currently off</p>
+                  {withdrawalNote && (
+                    <p className="mt-1 text-xs font-semibold text-rose-600">{withdrawalNote}</p>
+                  )}
+                  <p className="mt-2 text-[11px] font-semibold text-rose-400">Please try again later.</p>
+                </div>
+              </div>
+            ) : !kycVerified ? (
+              <Empty title="KYC required" hint="Open KYC Verification from your Profile to unlock withdrawals." />
+            ) : battlesPlayed < 1 ? (
+              /* deposited but never played — no withdrawal without a battle */
+              <div className="space-y-3">
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-center">
+                  <span className="text-2xl">🎯</span>
+                  <p className="mt-1 text-sm font-black text-amber-800">Play your first battle to unlock withdrawals</p>
+                  <p className="mt-1 text-xs font-semibold text-amber-700">
+                    Your deposit is safe in your wallet. Finished battles make your balance withdrawable — head to the
+                    Play tab and join a battle now.
+                  </p>
+                </div>
+              </div>
+            ) : (
               <div className="space-y-3">
                 <Input
                   label="Amount (₹)"
@@ -375,8 +414,6 @@ export default function Wallet() {
                 </Button>
                 <p className="text-[11px] text-slate-500">The amount is put on hold immediately and paid out by an admin.</p>
               </div>
-            ) : (
-              <Empty title="KYC required" hint="Open KYC Verification from your Profile to unlock withdrawals." />
             )}
           </Panel>
         </TabsPanel>

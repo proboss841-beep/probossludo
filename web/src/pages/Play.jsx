@@ -51,6 +51,12 @@ export default function Play() {
     queryFn: () => api("/contests/mine"),
     refetchInterval: 15_000,
   });
+  // every live battle on the platform (not just the viewer's) — /contests/running
+  const running = useQuery({
+    queryKey: ["contests", "running"],
+    queryFn: () => api("/contests/running"),
+    refetchInterval: 15_000,
+  });
   const wallet = useQuery({
     queryKey: ["wallet"],
     queryFn: () => api("/wallet"),
@@ -131,15 +137,23 @@ export default function Play() {
   }, [openBattles, myBattles]);
 
   const runningBattles = useMemo(() => {
-    const real = myBattles.filter((c) => RUNNING_STATUSES.includes(c.status));
+    // real battles: everyone's live battles from the global /contests/running
+    const real = (running.data?.items || []).filter((c) => RUNNING_STATUSES.includes(c.status));
+
+    // the viewer's own battles (the ones showing VIEW) always go on top
     real.sort((a, b) => {
       const aMine = isMine(a) ? 0 : 1;
       const bMine = isMine(b) ? 0 : 1;
       if (aMine !== bMine) return aMine - bMine;
       return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
     });
-    return real;
-  }, [myBattles]);
+
+    // wait for the first real load so the fake list doesn't fight the skeletons
+    if (running.data === undefined) return real;
+
+    // demo battles fill the rest of the list (after any real ones)
+    return [...real, ...demoBattles];
+  }, [running.data, demoBattles]);
   const demoBattles = useMemo(() => createDemoBattles(demoHour), [demoHour]);
   const previewPaise = useMemo(() => {
     const amt = Number(betAmount);
@@ -236,6 +250,10 @@ export default function Play() {
         toast.error("You are already in a match");
       } else if (/insufficient|balance|fund/i.test(msg)) {
         toast.error("Insufficient balance for this battle");
+      } else if (/no longer available|not available/i.test(msg)) {
+        // a dummy/social-proof battle was clicked — it disappears for good; refresh right away
+        qc.invalidateQueries({ queryKey: ["contests"] });
+        toast.info("This battle is no longer available");
       } else if (msg) {
         toast.error(msg);
       }
@@ -434,7 +452,11 @@ export default function Play() {
             <MatchCard
               key={c.id}
               battle={c}
-              onClick={() => navigate(`/battle/${c.id}`)}
+              onClick={() => {
+                // everyone can SEE all running battles, but only a participant can open one
+                if (!isMine(c)) return;
+                navigate(`/battle/${c.id}`);
+              }}
             />
           ))}
 

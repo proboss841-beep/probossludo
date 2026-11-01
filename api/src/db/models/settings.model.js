@@ -21,6 +21,12 @@ const settingsSchema = new mongoose.Schema(
     depositGatewayMaxPaise: { type: Number, default: 500000 },
     maintenanceMode: { type: Boolean, default: false },
     /**
+     * Withdrawals master switch + note. When OFF the player-facing withdraw
+     * button shows `withdrawalNote` and the API rejects new withdrawal requests.
+     */
+    withdrawalsEnabled: { type: Boolean, default: true },
+    withdrawalNote: { type: String, trim: true, maxlength: 300, default: "Withdrawals are temporarily disabled. Please try again later." },
+    /**
      * Support WhatsApp number shown on the Support screen (digits with country
      * code, e.g. 919876543210). Empty = the screen tells players support is
      * not configured yet instead of opening a dead chat.

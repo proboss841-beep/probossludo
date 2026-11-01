@@ -157,9 +157,29 @@ export async function requestWithdraw(req, res) {
     throw new BadRequestError(`Minimum withdrawal is ₹${s.withdrawalMinPaise / 100}`);
   }
 
+  // Admin master switch — while withdrawals are OFF the API refuses and the
+  // wallet screen shows the admin's note instead of the form.
+  if (s.withdrawalsEnabled === false) {
+    throw new ConflictError(s.withdrawalNote || "Withdrawals are temporarily disabled. Please try again later.");
+  }
+
   const user = req.user.doc;
   if (user.kyc?.status !== "verified") {
     throw new ForbiddenError("KYC verification is required before withdrawing");
+  }
+
+  // A player must finish at least one battle before any withdrawal is allowed.
+  // Only settled battles write `entry_fee_paid` / `prize_win` ledger rows, so a
+  // fresh account that only deposited can never withdraw (no play = no withdraw).
+  const { LedgerEntry } = await import("../db/models/ledgerEntry.model.js");
+  const playedGame = await LedgerEntry.findOne({
+    userId: req.user.id,
+    type: { $in: ["entry_fee_paid", "prize_win"] },
+  }).select("_id").lean();
+  if (!playedGame) {
+    throw new ForbiddenError(
+      "Withdrawal is unlocked after playing your first battle. Play a battle to withdraw your winnings."
+    );
   }
 
   const doc = await WithdrawalRequest.create({
@@ -175,7 +195,6 @@ export async function requestWithdraw(req, res) {
     throw err;
   }
   // traceability: point at the exact ledger row created by the hold
-  const { LedgerEntry } = await import("../db/models/ledgerEntry.model.js");
   const holdRow = await LedgerEntry.findOne({ idempotencyKey: `w_hold:${doc._id}` }).lean();
   doc.holdLedgerId = holdRow?._id || null;
   await doc.save();

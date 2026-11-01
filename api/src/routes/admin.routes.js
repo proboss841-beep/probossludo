@@ -36,6 +36,11 @@ router.post("/contests/settle", requirePermission("matches"), asyncH(adminContro
 router.post("/contests/:id/refund", requirePermission("matches"), asyncH(adminController.refundContest));
 router.post("/contests/:id/force-expire", requirePermission("matches"), asyncH(adminController.forceExpire));
 
+// dummy (social proof) battles
+router.get("/dummy-contests", requirePermission("matches"), asyncH(adminController.listDummy));
+router.post("/dummy-contests", requirePermission("matches"), asyncH(adminController.createDummy));
+router.delete("/dummy-contests/:id", requirePermission("matches"), asyncH(adminController.deleteDummy));
+
 router.get("/ledger", requirePermission("ledger"), asyncH(adminController.listLedgerAll));
 router.get("/audit", requirePermission("audit"), asyncH(adminController.listAudit));
 

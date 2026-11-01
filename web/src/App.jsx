@@ -19,6 +19,7 @@ import AppDownload from "./pages/AppDownload.jsx";
 import { Spinner } from "./components/ui.jsx";
 import { NavIcon } from "./components/art.jsx";
 import { formatPaise } from "./lib/money.js";
+import { useIsInstalled } from "./lib/installApp.js";
 
 /**
  * App shell uses a centred, reference-style device frame
@@ -54,6 +55,7 @@ function useWalletView() {
 function AppHeader({ onOpenMenu }) {
   const wallet = useWalletView();
   const available = wallet?.availablePaise;
+  const installed = useIsInstalled();
 
   return (
     <section className="flex items-center gap-2.5 border-b border-[#f41468]/30 px-4 py-2.5" data-purpose="app-header">
@@ -73,6 +75,20 @@ function AppHeader({ onOpenMenu }) {
       </Link>
 
       <div className="ml-auto flex items-center gap-1.5">
+        {/* app download — hidden once the Android app / PWA shortcut is installed */}
+        {!installed && (
+          <Link
+            to="/app-download"
+            aria-label="Download the app"
+            title="Download the app"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sky-500 text-white shadow-sm transition-all active:scale-95"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v12m0 0l-4.5-4.5M12 16l4.5-4.5M4 20h16" />
+            </svg>
+          </Link>
+        )}
+
         {/* deposit balance */}
         <Link
           to="/wallet"
@@ -170,6 +186,12 @@ function DrawerHistory({ open, onClose }) {
 }
 
 function Drawer({ open, onClose }) {
+  // hide the "App Download" entry when already running inside the app / PWA
+  const installed = useIsInstalled();
+  const drawerItems = installed
+    ? DRAWER_ITEMS.filter((i) => i.to !== "/app-download")
+    : DRAWER_ITEMS;
+
   return (
     <>
       {open && (
@@ -204,7 +226,7 @@ function Drawer({ open, onClose }) {
         </div>
 
         <nav className="flex-1 space-y-2.5 overflow-y-auto p-4">
-          {DRAWER_ITEMS.map((item) => (
+          {drawerItems.map((item) => (
             <Link
               key={item.label}
               to={item.to}

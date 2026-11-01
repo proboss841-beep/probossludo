@@ -53,6 +53,12 @@ const contestSchema = new mongoose.Schema(
       autoRefundAt: { type: Date },
     },
 
+    // Admin-created dummy (social-proof) battle — shown in the open lobby,
+    // never playable. Clicking one just removes it for that player.
+    isDummy: { type: Boolean, default: false },
+    dummyName: { type: String, trim: true, maxlength: 40 },
+    dummyMobile: { type: String, trim: true, maxlength: 15 },
+
     entryHoldReleased: { type: Boolean, default: false },
     expiresAt: { type: Date },
     version: { type: Number, default: 0 },

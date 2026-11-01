@@ -48,11 +48,12 @@ export default function Battle() {
     refetchInterval: 10_000,
   });
 
-  // 2. Fetch User's Active / Running Battles (Lobby View)
+  // 2. Fetch EVERYONE's Running Battles (Lobby View) — task: all tables on the
+  //    platform are visible, not just the viewer's
   const runningContestsQuery = useQuery({
     queryKey: ["contests", "running"],
     queryFn: () =>
-      api("/contests/mine").then((r) =>
+      api("/contests/running").then((r) =>
         (r.items || []).filter((c) => RUNNING_STATUSES.includes(c.status))
       ),
     enabled: !id,
@@ -137,6 +138,11 @@ export default function Battle() {
         toast.error("You are already in a match");
       } else if (err?.message?.includes("insufficient") || err?.message?.includes("balance")) {
         toast.error("Insufficient wallet balance for this amount");
+      } else if (/no longer available|not available/i.test(String(err?.message || ""))) {
+        // a dummy/social-proof battle was clicked — it disappears for good; refresh right away
+        qc.invalidateQueries({ queryKey: ["contests", "open"] });
+        qc.invalidateQueries({ queryKey: ["contests", "running"] });
+        toast.info("This battle is no longer available");
       } else if (err?.message) {
         toast.error(err.message);
       }
@@ -605,12 +611,18 @@ export default function Battle() {
                 </div>
                 <div className="mt-2 flex items-center justify-between border-t border-slate-100 pt-2">
                   <p className="text-xs font-black text-slate-800">Prize: {formatPaise(b.prize)}</p>
-                  <button
-                    onClick={() => navigate(`/battle/${b.id}`)}
-                    className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm"
-                  >
-                    VIEW
-                  </button>
+                  {b.players?.some((p) => p.isYou) ? (
+                    <button
+                      onClick={() => navigate(`/battle/${b.id}`)}
+                      className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm"
+                    >
+                      VIEW
+                    </button>
+                  ) : (
+                    <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-black uppercase text-emerald-600 ring-1 ring-emerald-200">
+                      Playing
+                    </span>
+                  )}
                 </div>
               </div>
             ))

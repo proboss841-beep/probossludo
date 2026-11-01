@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { objectIdSchema, phoneSchema } from "../lib/shared/schemas/index.js";
+import { objectIdSchema, phoneSchema, stakeSchema } from "../lib/shared/schemas/index.js";
 
 /** admin / agent account management (superadmin only) */
 export const adminAccountCreateSchema = z.object({
@@ -96,6 +96,17 @@ export const adminSettingsSchema = z.object({
     .regex(/^\+?\d{10,15}$/, "Enter the number with country code, digits only")
     .or(z.literal(""))
     .optional(),
+  /** withdrawals master switch + the note shown to players while it is off */
+  withdrawalsEnabled: z.boolean().optional(),
+  withdrawalNote: z.string().trim().max(300).optional(),
 });
+
+/** admin dummy (social-proof) battle */
+export const adminDummySchema = z.object({
+  stake: stakeSchema,
+  name: z.string().trim().min(2, "Enter a name").max(40).optional(),
+  mobile: z.string().trim().max(15).optional(),
+});
+
 
 export { validate } from "../lib/shared/schemas/index.js";
