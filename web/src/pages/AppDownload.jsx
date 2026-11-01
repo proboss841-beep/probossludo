@@ -1,25 +1,34 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { Panel } from "../components/ui.jsx";
-import { usePwaInstall, isIOS } from "../lib/installApp.js";
+import { usePwaInstall } from "../lib/installApp.js";
+import { useToast } from "../components/Toast.jsx";
 
 /**
  * App Download — PWA install page.
  *
- * Tapping "Install" pops the browser's native install dialog and puts an
- * app-like shortcut on the home screen. On browsers that don't support the
- * install prompt (mostly iOS Safari) the page shows step-by-step "Add to Home
- * Screen" instructions instead.
+ * The big Install button is always shown unless the app is already installed.
+ * On browsers that support it the button opens the browser's native install
+ * dialog ("Install" popup). If the browser does not offer the prompt right now
+ * (iOS Safari, or Chrome right after the app was uninstalled), tapping it shows
+ * a short toast instead — the button is never hidden.
  */
 export default function AppDownload() {
   const { prompt, install, installed } = usePwaInstall();
+  const { toast } = useToast();
   const [busy, setBusy] = useState(false);
 
   async function onInstall() {
+    if (!prompt) {
+      toast.info("Use your browser menu (⋮) → Install app / Add to Home screen");
+      return;
+    }
     setBusy(true);
     const ok = await install();
-    // if the native dialog could not be shown, fall back to instructions
-    if (!ok) setBusy(false);
+    if (!ok) {
+      toast.info("Use your browser menu (⋮) → Install app / Add to Home screen");
+      setBusy(false);
+    }
   }
 
   return (
@@ -43,8 +52,9 @@ export default function AppDownload() {
               : "Install the app on your phone — it lives on your home screen, opens full-screen like a real app, and stays updated automatically."}
           </p>
 
-          {!installed && prompt && (
-            /* Native install prompt — the browser shows its own "Install" dialog */
+          {!installed && (
+            /* Install button — always visible; opens the native install dialog
+               when the browser supports it */
             <button
               type="button"
               onClick={onInstall}
@@ -81,44 +91,11 @@ export default function AppDownload() {
             </span>
           )}
 
-          {!installed && !prompt && <HowToInstall isIOS={isIOS()} />}
-
           <Link to="/" className="text-xs font-extrabold text-brand-600 hover:text-brand-500">
             ← Back to home
           </Link>
         </div>
       </Panel>
-    </div>
-  );
-}
-
-/** Manual install instructions for browsers without the install prompt. */
-function HowToInstall({ isIOS }) {
-  return (
-    <div className="w-full max-w-xs space-y-3 text-left">
-      {isIOS ? (
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs">
-          <p className="mb-2 font-black text-slate-700">iPhone / iPad — add to Home Screen:</p>
-          <ol className="list-decimal space-y-1.5 pl-4 font-semibold text-slate-600">
-            <li>
-              Tap the <b>Share</b> button in Safari <span className="text-slate-400">(square with arrow)</span>.
-            </li>
-            <li>Scroll down and tap <b>Add to Home Screen</b>.</li>
-            <li>Tap <b>Add</b> — the app icon appears on your home screen.</li>
-          </ol>
-        </div>
-      ) : (
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs">
-          <p className="mb-2 font-black text-slate-700">Android — add to Home Screen:</p>
-          <ol className="list-decimal space-y-1.5 pl-4 font-semibold text-slate-600">
-            <li>
-              Tap <b>⋮</b> (menu) in the top-right of Chrome.
-            </li>
-            <li>Tap <b>Add to Home screen</b> (or <b>Install app</b>)</li>
-            <li>The app shortcut is added to your home screen.</li>
-          </ol>
-        </div>
-      )}
     </div>
   );
 }

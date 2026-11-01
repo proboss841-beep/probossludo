@@ -109,7 +109,11 @@ export default function Wallet() {
 
   const kycVerified = profile.data?.user?.kycStatus === "verified";
   // withdrawal rules: admin switch ON + the player must have finished a battle first
-  const withdrawalsEnabled = publicSettings.data?.withdrawalsEnabled !== false;
+  // Never assume withdrawals are open: only show the form once the public
+  // settings have loaded and explicitly say withdrawals are ON. While loading
+  // we render a neutral spinner, and when OFF we show only the admin's note.
+  const settingsLoaded = publicSettings.isSuccess;
+  const withdrawalsEnabled = settingsLoaded ? publicSettings.data.withdrawalsEnabled !== false : false;
   const withdrawalNote = publicSettings.data?.withdrawalNote || "Withdrawals are temporarily disabled. Please try again later.";
   const battlesPlayed = Number(profile.data?.battlesPlayed || 0);
   const canWithdraw = kycVerified && withdrawalsEnabled && battlesPlayed >= 1;
@@ -366,9 +370,10 @@ export default function Wallet() {
         <TabsPanel match={tab} value="withdraw">
           <Panel title="Withdraw funds">
             {!withdrawalsEnabled ? (
-              /* admin turned withdrawals OFF — show the admin's note, no form */
-              <div className="space-y-3">
-                <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-3 text-center">
+              settingsLoaded ? (
+                /* admin turned withdrawals OFF — the withdraw section is replaced
+                   by the admin's note only: no Amount / UPI inputs, nothing else */
+                <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-4 text-center">
                   <svg className="mx-auto mb-1 h-6 w-6 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v4m0 4h.01M10.3 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.7 3.86a2 2 0 0 0-3.4 0Z" />
                   </svg>
@@ -376,9 +381,11 @@ export default function Wallet() {
                   {withdrawalNote && (
                     <p className="mt-1 text-xs font-semibold text-rose-600">{withdrawalNote}</p>
                   )}
-                  <p className="mt-2 text-[11px] font-semibold text-rose-400">Please try again later.</p>
                 </div>
-              </div>
+              ) : (
+                /* still checking the admin switch — show a neutral loader, never the form */
+                <div className="flex justify-center py-6"><Spinner /></div>
+              )
             ) : !kycVerified ? (
               <Empty title="KYC required" hint="Open KYC Verification from your Profile to unlock withdrawals." />
             ) : battlesPlayed < 1 ? (
