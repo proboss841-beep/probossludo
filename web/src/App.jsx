@@ -19,7 +19,7 @@ import AppDownload from "./pages/AppDownload.jsx";
 import { Spinner } from "./components/ui.jsx";
 import { NavIcon } from "./components/art.jsx";
 import { formatPaise } from "./lib/money.js";
-import { useIsInstalled } from "./lib/installApp.js";
+import { useIsInstalled, usePwaInstall } from "./lib/installApp.js";
 
 /**
  * App shell uses a centred, reference-style device frame
@@ -56,6 +56,16 @@ function AppHeader({ onOpenMenu }) {
   const wallet = useWalletView();
   const available = wallet?.availablePaise;
   const installed = useIsInstalled();
+  const { prompt: installPrompt, install: installPwa } = usePwaInstall();
+
+  /** Download/Install click — when the browser offers a PWA install prompt,
+   * show it right here; otherwise go to the download page for instructions. */
+  async function onDownloadClick(e) {
+    if (installPrompt) {
+      e.preventDefault();
+      await installPwa();
+    }
+  }
 
   return (
     <section className="flex items-center gap-2 border-b border-[#f41468]/30 px-3 py-2.5" data-purpose="app-header">
@@ -76,10 +86,13 @@ function AppHeader({ onOpenMenu }) {
 
       <div className="ml-auto flex items-center gap-1.5">
         {/* Download Button: Stacked layout (Arrow on top, text underneath), wallet gradient color, animated green arrow.
-            Hidden once the Android app / PWA shortcut is installed. */}
+            Hidden once the app (Android wrapper / PWA shortcut) is installed.
+            With PWA support it opens the browser install dialog; otherwise it
+            goes to the download page with Add-to-Home-Screen instructions. */}
         {!installed && (
           <Link
             to="/app-download"
+            onClick={onDownloadClick}
             aria-label="Download App"
             className="flex flex-col items-center justify-center rounded-2xl border border-sky-300/80 bg-gradient-to-b from-sky-400 via-sky-500 to-blue-600 px-2.5 py-1 text-white shadow-[0_0_10px_rgba(56,189,248,.35)] transition-transform active:scale-95"
           >

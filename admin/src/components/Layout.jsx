@@ -89,6 +89,7 @@ const NAV = [
   },
   { label: "Deposits", icon: "deposit", to: "/deposits", perm: "deposit" },
   { label: "Withdrawals", icon: "withdraw", to: "/withdrawals", perm: "withdraw" },
+  { label: "Toggle Withdraw", icon: "withdraw", to: "/toggle-withdraw", perm: "setting" },
   { label: "Ledger", icon: "ledger", to: "/ledger", perm: "ledger" },
   { label: "Audit", icon: "audit", to: "/audit", perm: "audit" },
   { label: "Client Tracking", icon: "users", to: "/client-tracking", perm: "client_tracking" },

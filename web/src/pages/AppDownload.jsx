@@ -1,23 +1,26 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { Panel } from "../components/ui.jsx";
-import { isInstalled, apkAvailable } from "../lib/installApp.js";
+import { usePwaInstall, isIOS } from "../lib/installApp.js";
 
 /**
- * App Download — Direct APK Download Feature.
+ * App Download — PWA install page.
  *
- * The Android app is just this same website inside a WebView, so every change
- * you make to the website shows up in the app automatically. Once the APK is
- * deployed to /probossludo.apk the button below downloads it; inside the app
- * itself the button is hidden (no point re-downloading an installed app).
+ * Tapping "Install" pops the browser's native install dialog and puts an
+ * app-like shortcut on the home screen. On browsers that don't support the
+ * install prompt (mostly iOS Safari) the page shows step-by-step "Add to Home
+ * Screen" instructions instead.
  */
 export default function AppDownload() {
-  const [available, setAvailable] = useState(null); // null = checking
-  const [installed, setInstalled] = useState(isInstalled());
+  const { prompt, install, installed } = usePwaInstall();
+  const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    apkAvailable("/probossludo.apk").then(setAvailable).catch(() => setAvailable(false));
-  }, []);
+  async function onInstall() {
+    setBusy(true);
+    const ok = await install();
+    // if the native dialog could not be shown, fall back to instructions
+    if (!ok) setBusy(false);
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -32,19 +35,20 @@ export default function AppDownload() {
             />
           </div>
 
-          <p className="text-lg font-black tracking-tight text-ink">Proboss Ludo for Android</p>
+          <p className="text-lg font-black tracking-tight text-ink">Proboss Ludo</p>
 
           <p className="max-w-xs text-xs font-semibold text-slate-500">
             {installed
-              ? "You are already running the app — everything on the website also works in the app, and updates arrive automatically."
-              : "Download the official Android app and play anywhere. Fast, secure, and smooth gameplay experience!"}
+              ? "You already have the app installed — everything on the website works in the app, and updates arrive automatically."
+              : "Install the app on your phone — it lives on your home screen, opens full-screen like a real app, and stays updated automatically."}
           </p>
 
-          {!installed && available === true && (
-            /* Direct APK Download Button */
-            <a
-              href="/probossludo.apk"
-              download="probossludo.apk"
+          {!installed && prompt && (
+            /* Native install prompt — the browser shows its own "Install" dialog */
+            <button
+              type="button"
+              onClick={onInstall}
+              disabled={busy}
               className="mt-2 inline-flex flex-col items-center justify-center rounded-full border-2 border-[#1E1E1E] bg-[#FEF0B6] px-6 py-2 shadow-md transition-all hover:brightness-95 active:scale-95 cursor-pointer"
             >
               {/* Green Circle Badge with Live Bouncing Download Icon */}
@@ -66,9 +70,9 @@ export default function AppDownload() {
 
               {/* Text Label Stacked Below Arrow */}
               <span className="mt-1 text-xs font-black tracking-tight text-[#1E1E1E]">
-                Download
+                Install
               </span>
-            </a>
+            </button>
           )}
 
           {installed && (
@@ -77,17 +81,44 @@ export default function AppDownload() {
             </span>
           )}
 
-          {!installed && available === false && (
-            <span className="rounded-full bg-gray-100 px-4 py-2 text-xs font-extrabold uppercase tracking-wide text-slate-500">
-              App available soon — keep playing in your browser
-            </span>
-          )}
+          {!installed && !prompt && <HowToInstall isIOS={isIOS()} />}
 
           <Link to="/" className="text-xs font-extrabold text-brand-600 hover:text-brand-500">
             ← Back to home
           </Link>
         </div>
       </Panel>
+    </div>
+  );
+}
+
+/** Manual install instructions for browsers without the install prompt. */
+function HowToInstall({ isIOS }) {
+  return (
+    <div className="w-full max-w-xs space-y-3 text-left">
+      {isIOS ? (
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs">
+          <p className="mb-2 font-black text-slate-700">iPhone / iPad — add to Home Screen:</p>
+          <ol className="list-decimal space-y-1.5 pl-4 font-semibold text-slate-600">
+            <li>
+              Tap the <b>Share</b> button in Safari <span className="text-slate-400">(square with arrow)</span>.
+            </li>
+            <li>Scroll down and tap <b>Add to Home Screen</b>.</li>
+            <li>Tap <b>Add</b> — the app icon appears on your home screen.</li>
+          </ol>
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs">
+          <p className="mb-2 font-black text-slate-700">Android — add to Home Screen:</p>
+          <ol className="list-decimal space-y-1.5 pl-4 font-semibold text-slate-600">
+            <li>
+              Tap <b>⋮</b> (menu) in the top-right of Chrome.
+            </li>
+            <li>Tap <b>Add to Home screen</b> (or <b>Install app</b>)</li>
+            <li>The app shortcut is added to your home screen.</li>
+          </ol>
+        </div>
+      )}
     </div>
   );
 }

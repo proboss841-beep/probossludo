@@ -15,6 +15,7 @@ import DummyBattles from "./pages/DummyBattles.jsx";
 import Ledger from "./pages/Ledger.jsx";
 import Audit from "./pages/Audit.jsx";
 import Settings from "./pages/Settings.jsx";
+import ToggleWithdraw from "./pages/ToggleWithdraw.jsx";
 import AdminControl from "./pages/AdminControl.jsx";
 
 /** Every authenticated screen renders inside the shell + its own error boundary. */
@@ -59,6 +60,7 @@ function AdminApp() {
       <Route path="/ledger" element={withShell(<Ledger />)} />
       <Route path="/audit" element={withShell(<Audit />)} />
       <Route path="/settings" element={withShell(<Settings />)} />
+      <Route path="/toggle-withdraw" element={withShell(<ToggleWithdraw />)} />
       <Route path="/admin-control" element={withShell(<AdminControl />)} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
