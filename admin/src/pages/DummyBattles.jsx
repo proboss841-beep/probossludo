@@ -6,9 +6,9 @@ import { useToast } from "../components/Toast.jsx";
 import { Button, Card, Input, Money, PageHeading, Skeleton, Table } from "../components/ui.jsx";
 
 /**
- * Dummy battles — admin "social proof" tables shown in the open battle lobby.
- * A real player clicking one removes it (handled server-side); they are never
- * actually playable.
+ * Dummy open battles — admin "social proof" tables shown in the player lobby's
+ * Open Battles section. A real player clicking one removes it (handled
+ * server-side); they are never actually playable.
  */
 export default function DummyBattles() {
   const qc = useQueryClient();
@@ -62,10 +62,10 @@ export default function DummyBattles() {
 
   return (
     <div className="space-y-4">
-      <PageHeading title="Dummy battles" subtitle={`${items.length} social-proof tables`} />
+      <PageHeading title="Dummy open battles" subtitle={`${items.length} fake tables in the player Open Battles lobby`} />
 
       <Card>
-        <p className="mb-3 text-xs font-bold uppercase tracking-wide text-[#7a3d58]">Add a dummy battle</p>
+        <p className="mb-3 text-xs font-bold uppercase tracking-wide text-[#7a3d58]">Create a dummy open battle</p>
         <div className="grid gap-2 sm:grid-cols-4">
           <Input label="Player name" value={name} onChange={(e) => setName(e.target.value)} placeholder="ROHIT_99" />
           <Input label="Amount (₹)" value={stake} onChange={(e) => setStake(e.target.value)} placeholder="500" inputMode="numeric" />
@@ -75,7 +75,8 @@ export default function DummyBattles() {
           </div>
         </div>
         <p className="mt-2 text-[11px] text-[#a56a83]">
-          Dummies appear in the player lobby as open battles and vanish if a real player tries to join.
+          The fake battle appears instantly in the player lobby's Open Battles section and disappears if a
+          real player tries to join it.
         </p>
       </Card>
 
@@ -94,7 +95,7 @@ export default function DummyBattles() {
               { key: "_actions", label: "", render: (r) => <Button variant="danger" disabled={remove.isPending} onClick={() => remove.mutate(r.id)}>Remove</Button> },
             ]}
             data={items}
-            empty="No dummy battles"
+            empty="No dummy open battles yet"
           />
         )}
       </Card>
