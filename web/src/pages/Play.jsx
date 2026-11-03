@@ -14,11 +14,6 @@ const AMOUNT_STEP = 50;
 
 const ACTIVE_STATUSES = ["join_requested", "running", "room_submitted", "result_submitted", "cancel_requested"];
 const RUNNING_STATUSES = ["running", "room_submitted", "result_submitted", "cancel_requested"];
-const DEMO_NAME_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ";
-const DEMO_STAKES_PAISE = [
-  5000, 10000, 15000, 20000, 25000, 30000, 40000, 50000, 75000, 100000,
-  150000, 200000, 250000, 300000, 400000, 500000, 750000, 1000000, 1500000, 2000000,
-];
 
 const creatorOf = (c) => c?.players?.find((p) => p.seat === 1) || null;
 const opponentOf = (c) => c?.players?.find((p) => p.seat === 2) || null;
@@ -33,14 +28,6 @@ export default function Play() {
   const [actionLoading, setActionLoading] = useState(false);
   const [busyBattleAction, setBusyBattleAction] = useState(null);
   const [createError, setCreateError] = useState("");
-  const [demoHour, setDemoHour] = useState(() => Math.floor(Date.now() / 3_600_000));
-
-  useEffect(() => {
-    const interval = window.setInterval(() => {
-      setDemoHour(Math.floor(Date.now() / 3_600_000));
-    }, 60_000);
-    return () => window.clearInterval(interval);
-  }, []);
 
   const open = useQuery({
     queryKey: ["contests", "open"],
@@ -136,10 +123,8 @@ export default function Play() {
     );
   }, [openBattles, myBattles]);
 
-  const demoBattles = useMemo(() => createDemoBattles(demoHour), [demoHour]);
-
   const runningBattles = useMemo(() => {
-    // real battles: everyone's live battles from the global /contests/running
+    // every live battle (real + admin dummy running battles) from /contests/running
     const real = (running.data?.items || []).filter((c) => RUNNING_STATUSES.includes(c.status));
     real.sort((a, b) => {
       const aMine = isMine(a) ? 0 : 1;
@@ -147,11 +132,8 @@ export default function Play() {
       if (aMine !== bMine) return aMine - bMine;
       return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
     });
-    // wait for the first real load so the fake list doesn't fight the skeletons
-    if (running.data === undefined) return real;
-    // demo battles fill the rest of the list (after any real ones)
-    return [...real, ...demoBattles];
-  }, [running.data, demoBattles]);
+    return real;
+  }, [running.data]);
 
   function invalidate() {
     qc.invalidateQueries({ queryKey: ["contests"] });
@@ -459,7 +441,7 @@ export default function Play() {
           <span className="text-xs font-bold text-white flex items-center gap-1">⚔️ live</span>
         </div>
         <div className="mt-2 flex flex-col gap-3">
-          {!loading && runningBattles.length === 0 && demoBattles.length === 0 && <Empty title="No Running Battles" />}
+          {!loading && runningBattles.length === 0 && <Empty title="No Running Battles" />}
 
           {runningBattles.map((c) => (
             <MatchCard
@@ -471,10 +453,6 @@ export default function Play() {
                 navigate(`/battle/${c.id}`);
               }}
             />
-          ))}
-
-          {demoBattles.map((battle) => (
-            <DemoMatchCard key={battle.id} battle={battle} />
           ))}
         </div>
       </div>
@@ -545,12 +523,6 @@ function MatchCard({ battle, onClick }) {
       statusLabel={mine ? (isPending ? "Pending" : "View") : null}
       pending={isPending}
     />
-  );
-}
-
-function DemoMatchCard({ battle }) {
-  return (
-    <RunningBattleCard battle={battle} playerNames={battle.players} />
   );
 }
 
@@ -638,42 +610,4 @@ function BattleActionSpinner({ label }) {
       {label && <span className="text-[8px] font-bold uppercase tracking-wide text-white/75">{label}</span>}
     </div>
   );
-}
-
-function createDemoBattles(hourSeed) {
-  let state = hourSeed >>> 0;
-  const random = () => {
-    state = (state + 0x6D2B79F5) | 0;
-    let value = state;
-    value = Math.imul(value ^ (value >>> 15), value | 1);
-    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
-    return ((value ^ (value >>> 14)) >>> 0) / 4_294_967_296;
-  };
-
-  const names = new Set();
-  while (names.size < 30) {
-    let name = "";
-    for (let index = 0; index < 5; index += 1) {
-      name += DEMO_NAME_ALPHABET[Math.floor(random() * DEMO_NAME_ALPHABET.length)];
-    }
-    names.add(name);
-  }
-  const players = [...names];
-  const stakes = [...DEMO_STAKES_PAISE];
-  for (let index = stakes.length - 1; index > 0; index -= 1) {
-    const swapIndex = Math.floor(random() * (index + 1));
-    [stakes[index], stakes[swapIndex]] = [stakes[swapIndex], stakes[index]];
-  }
-  const minutesAgo = Array.from({ length: 15 }, (_, index) => 4 + (15 - index) * 31 + (index % 3) * 9);
-
-  return Array.from({ length: 15 }, (_, index) => {
-    const stake = stakes[index];
-    return {
-      id: `demo-${hourSeed}-${index}`,
-      stake,
-      prize: computePrize(stake).prizePaise,
-      players: [players[index * 2], players[index * 2 + 1]],
-      startedMinutesAgo: minutesAgo[index],
-    };
-  });
 }

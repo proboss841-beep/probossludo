@@ -17,6 +17,8 @@ router.post("/", requireAuth, asyncH(contestController.create));
 router.get("/:id", requireAuth, asyncH(contestController.getContest));
 router.post("/:id/join", requireAuth, asyncH(contestController.join));
 router.post("/:id/start", requireAuth, asyncH(contestController.start));
+// legacy alias used by the /battle/:id screen; identical to /start
+router.post("/:id/accept", requireAuth, asyncH(contestController.start));
 router.post("/:id/reject", requireAuth, asyncH(contestController.reject));
 router.post("/:id/room", requireAuth, asyncH(contestController.submitRoom));
 router.post("/:id/result", requireAuth, asyncH(contestController.submitResult));

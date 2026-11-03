@@ -26,9 +26,14 @@ function contestDto(contest, { userId, includeRoomCode = false } = {}) {
     players: contest.players.map((p) => ({
       seat: p.seat,
       userId: p.userId?._id || p.userId || null,
-      name: contest.isDummy && p.seat === 1 ? contest.dummyName : (p.userId?.name || null),
+      name: contest.isDummy
+        ? p.seat === 1
+          ? contest.dummyName || "Player"
+          : contest.dummyOpponentName || "Player"
+        : (p.userId?.name || null),
       isYou: Boolean(userId && p.userId && String(p.userId._id || p.userId) === String(userId)),
     })),
+    isDummy: Boolean(contest.isDummy),
     prize: computePrize(contest.stake).prizePaise, // winner's credit (slab-based, same maths as settlement)
     conflict: contest.conflict?.active ? { raisedBy: contest.conflict.raisedBy } : null,
     roomCode: includeRoomCode && isParticipant ? contest.roomCode || null : null, // only the 2 players
@@ -96,7 +101,9 @@ export async function join(req, res) {
   res.json({ contest: contestDto(fresh || contest, { userId: req.user.id, includeRoomCode: true }) });
 }
 
-/** POST /contests/:id/start — creator accepts the pending player and locks both stakes. */
+/** POST /contests/:id/start — creator accepts the pending player (match set
+ * up). No money moves here; both stakes are held only when the room code is
+ * shared (submitRoomCode), i.e. when the match actually begins. */
 export async function start(req, res) {
   const contest = await contestService.acceptContest({ userId: req.user.id, contestId: req.params.id });
   const fresh = await Contest.findById(contest._id).select("+roomCode").populate("players.userId", "name");

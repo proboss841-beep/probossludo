@@ -1,7 +1,7 @@
 import jwt from "jsonwebtoken";
 import { User } from "../db/models/user.model.js";
 import { Wallet } from "../db/models/wallet.model.js";
-import { Contest } from "../db/models/contest.model.js";
+import { Contest, CONTEST_STATES } from "../db/models/contest.model.js";
 import { DepositRequest } from "../db/models/depositRequest.model.js";
 import { WithdrawalRequest } from "../db/models/withdrawalRequest.model.js";
 import { LedgerEntry } from "../db/models/ledgerEntry.model.js";
@@ -460,12 +460,15 @@ export async function listContests(req, res) {
   }
   if (CONTEST_GROUPS[group]) filter.status = { $in: CONTEST_GROUPS[group] };
   else if (req.query.status) filter.status = req.query.status;
+  // dummy (social-proof) battles have their own admin screen — keep them out
+  // of the real battle ledger so they can never be settled/refunded by mistake.
+  filter.isDummy = { $ne: true };
 
   const [items, total, countsAgg] = await Promise.all([
     Contest.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit)
       .populate("players.userId", "name phone").lean(),
     Contest.countDocuments(filter),
-    Contest.aggregate([{ $group: { _id: "$status", n: { $sum: 1 } } }]),
+    Contest.aggregate([{ $match: { isDummy: { $ne: true } } }, { $group: { _id: "$status", n: { $sum: 1 } } }]),
   ]);
 
   const byStatus = Object.fromEntries(countsAgg.map((r) => [r._id, r.n]));
@@ -576,24 +579,29 @@ export async function forceExpire(req, res) {
 
 /* --------------------------- dummy battles --------------------------- */
 
-/** GET /admin/dummy-contests — social-proof battles shown in the open lobby */
+/** GET /admin/dummy-contests — social-proof battles shown in the open lobby
+ * (kind "open") or the running list (kind "running"), never playable. */
 export async function listDummy(_req, res) {
   const items = await contestService.listDummyContests();
   res.json({
     items: items.map((c) => ({
       id: c._id, stake: c.stake, name: c.dummyName || "Player",
-      mobile: c.dummyMobile || null, createdAt: c.createdAt,
+      mobile: c.dummyMobile || null,
+      opponentName: c.dummyOpponentName || null,
+      kind: c.status === CONTEST_STATES.RUNNING ? "running" : "open",
+      createdAt: c.createdAt,
     })),
   });
 }
 
-/** POST /admin/dummy-contests — add a dummy battle */
+/** POST /admin/dummy-contests — add a dummy battle (kind: open | running) */
 export async function createDummy(req, res) {
   const data = validate(adminDummySchema, req.body);
   const contest = await contestService.createDummyContest({
     stakePaise: data.stake, name: data.name, mobile: data.mobile,
+    kind: data.kind, opponentName: data.opponentName,
   });
-  await writeAudit(req.user.id, "dummy.create", "contest", contest._id, { stake: data.stake });
+  await writeAudit(req.user.id, "dummy.create", "contest", contest._id, { stake: data.stake, kind: data.kind });
   emitAdminRefresh();
   res.status(201).json({ id: contest._id });
 }

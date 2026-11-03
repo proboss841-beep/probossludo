@@ -147,17 +147,26 @@ export async function createContest({ userId, stakePaise, ip }) {
   );
 }
 
-/** Admin-created dummy battle — shown in the open lobby, never playable. */
-export async function createDummyContest({ stakePaise, name, mobile }) {
+/** Admin-created dummy battle — shown in the open lobby (kind open) or the
+ * running list (kind running, two fake players), never playable. */
+export async function createDummyContest({ stakePaise, name, mobile, kind = "open", opponentName }) {
   if (!isValidStake(stakePaise)) throw new BadRequestError("Unknown amount");
+  const running = kind === "running";
+  const players = running
+    ? [
+        { userId: new mongoose.Types.ObjectId(), seat: 1, joinedAt: new Date() },
+        { userId: new mongoose.Types.ObjectId(), seat: 2, joinedAt: new Date() },
+      ]
+    : [{ userId: new mongoose.Types.ObjectId(), seat: 1, joinedAt: new Date() }];
   const [contest] = await Contest.create([
     {
       stake: stakePaise,
-      status: CONTEST_STATES.OPEN,
+      status: running ? CONTEST_STATES.RUNNING : CONTEST_STATES.OPEN,
       isDummy: true,
       dummyName: name || "Player",
       dummyMobile: mobile || null,
-      players: [{ userId: new mongoose.Types.ObjectId(), seat: 1, joinedAt: new Date() }],
+      dummyOpponentName: running ? opponentName || "Player" : undefined,
+      players,
       expiresAt: new Date(Date.now() + 3650 * 24 * 3600 * 1000), // dummies don't expire
     },
   ]);
@@ -219,7 +228,9 @@ export async function joinContest({ userId, contestId, ip }) {
   );
 }
 
-/** The creator accepts a pending request and locks both stakes atomically. */
+/** The creator accepts a pending player and the match is set up (running).
+ * NO money moves here — both entry fees are only held once the room code is
+ * shared (see submitRoomCode), i.e. when the match actually begins. */
 export async function acceptContest({ userId, contestId }) {
   const outcome = await withLock(`contest:${contestId}`, async () => {
     const snapshot = await Contest.findById(contestId).select("players.userId");
@@ -238,10 +249,11 @@ export async function acceptContest({ userId, contestId }) {
         if (!creator || !joiner) throw new ConflictError("Battle is missing a player");
         if (String(creator.userId) !== String(userId)) throw new ForbiddenError("Only the battle creator can start it");
 
+        // Hold entry fees now that the opponent has joined and the match is starting
         for (const player of [creator, joiner]) {
           await walletService.holdEntryFee({
             userId: player.userId,
-            contestId: contest._id,
+            contestId,
             amountPaise: contest.stake,
             session,
           });
@@ -289,23 +301,43 @@ export async function rejectContest({ userId, contestId }) {
 /**
  * Share the Ludo King room code. Only the two participants may ever see it,
  * and it is stripped from list responses (fixes S2/S3 leakage).
+ *
+ * THIS is the moment the match really begins — both players' entry fees move
+ * from available into the held bucket here (and nowhere earlier), so nothing
+ * is ever cut while the game is still being set up.
  */
 export async function submitRoomCode({ userId, contestId, roomCode }) {
-  return withLock(`contest:${contestId}`, () =>
-    withTransaction(async (session) => {
-      const contest = await Contest.findOne({ _id: contestId }).session(session);
-      if (!contest) throw new NotFoundError("Battle not found");
-      if (!contest.isParticipant(userId)) throw new ForbiddenError("Not your battle");
-      if (contest.status !== CONTEST_STATES.RUNNING) throw new ConflictError("Battle is not running");
+  const outcome = await withLock(`contest:${contestId}`, async () => {
+    const snapshot = await Contest.findById(contestId).select("players.userId");
+    if (!snapshot) throw new NotFoundError("Battle not found");
+    const participantIds = snapshot.players.map((player) => player.userId);
 
-      contest.set("roomCode", roomCode.trim());
-      contest.set("roomCodeUp", roomCode.trim().toUpperCase());
-      contest.set("roomSubmittedBy", userId);
-      contest.set("roomSubmittedAt", new Date());
-      await contest.save({ session });
-      return true;
-    })
-  );
+    return withWalletLocks(participantIds, () =>
+      withTransaction(async (session) => {
+        const contest = await Contest.findOne({ _id: contestId }).session(session);
+        if (!contest) throw new NotFoundError("Battle not found");
+        if (!contest.isParticipant(userId)) throw new ForbiddenError("Not your battle");
+        if (contest.status !== CONTEST_STATES.RUNNING) throw new ConflictError("Battle is not running");
+        if (contest.isDummy) throw new BadRequestError("Dummy battles are not playable");
+
+        contest.set("roomCode", roomCode.trim());
+        contest.set("roomCodeUp", roomCode.trim().toUpperCase());
+        contest.set("roomSubmittedBy", userId);
+        contest.set("roomSubmittedAt", new Date());
+
+        // Entry fees were already held in acceptContest when the match started.
+        // Just record the room code submission here.
+        await contest.save({ session });
+        return { contest, playerIds: contest.players.map((p) => String(p.userId)) };
+      })
+    );
+  });
+
+  for (const pid of outcome.playerIds) {
+    emitWalletUpdate(pid, await walletService.walletView(pid));
+  }
+  emitContestUpdate(outcome.contest);
+  return true;
 }
 
 /** All ledger rows for this contest (admin dispute screen / debugging). */
@@ -368,6 +400,7 @@ export async function submitResult({ userId, contestId, outcome, screenshotKeys 
 export async function settleContest({ contestId, winnerUserId, settledBy, session }) {
   const contest = await Contest.findOne({ _id: contestId }).session(session);
   if (!contest) throw new NotFoundError("Battle not found");
+  if (contest.isDummy) throw new BadRequestError("Dummy battles cannot be settled");
   if (contest.settlement?.settledAt) return { contest, alreadySettled: true };
 
   const winner = contest.players.find((p) => p.userId.toString() === winnerUserId.toString());
@@ -380,6 +413,13 @@ export async function settleContest({ contestId, winnerUserId, settledBy, sessio
   // battle starts). The winner's held stake is CONSUMED here, then the prize
   // is credited on top — so a winner of a ₹100 battle ends up ₹190 richer,
   // not ₹290 (their own stake must never be credited back on a win).
+  //
+  // Defensive: if a battle somehow reached settlement without the hold step
+  // (admin settling a running battle before the room was shared), hold first —
+  // holdEntryFee is idempotent and a no-op when the hold already exists, so
+  // the consume below always has a held amount to release.
+  await walletService.holdEntryFee({ userId: winner.userId, contestId, amountPaise: contest.stake, session });
+  await walletService.holdEntryFee({ userId: loser.userId, contestId, amountPaise: contest.stake, session });
   await walletService.consumeEntryFee({ userId: winner.userId, contestId, amountPaise: contest.stake, contestRef: { contestId, stake: contest.stake }, session });
   const loserWallet = await walletService.consumeEntryFee({ userId: loser.userId, contestId, amountPaise: contest.stake, session });
   const wallet = await walletService.creditPrize({
@@ -541,6 +581,7 @@ export async function expireContestById(contestId, actor = "admin") {
     withTransaction(async (session) => {
       const contest = await Contest.findOne({ _id: contestId }).session(session);
       if (!contest) throw new NotFoundError("Battle not found");
+      if (contest.isDummy) throw new BadRequestError("Dummy battles cannot be expired");
       if (contest.status !== CONTEST_STATES.OPEN) {
         throw new ConflictError(`Only open battles can be expired (this one is "${contest.status}")`);
       }
@@ -565,6 +606,7 @@ export async function refundContestById(contestId, actor = "admin") {
     withTransaction(async (session) => {
       const fresh = await Contest.findOne({ _id: contestId }).session(session);
       if (!fresh) throw new NotFoundError("Battle not found");
+      if (fresh.isDummy) throw new BadRequestError("Dummy battles cannot be refunded");
       if (fresh.settlement?.settledAt) throw new ConflictError("Battle is already settled");
       if (TERMINAL_STATES.includes(fresh.status)) throw new ConflictError(`Battle is already ${fresh.status}`);
       const result = await refundAllContest({ contestId, settledBy: actor, session });
@@ -689,7 +731,10 @@ export async function listRunningContests({ page, limit }) {
     CONTEST_STATES.RESULT_SUBMITTED,
     CONTEST_STATES.CANCEL_REQUESTED,
   ];
-  const filter = { status: { $in: runningStatuses }, isDummy: { $ne: true } };
+  // NOTE: dummy (admin social-proof) running battles ARE included here — they
+  // carry status `running` and two fake players, and show up in the lobby's
+  // Running Battles section exactly like real matches.
+  const filter = { status: { $in: runningStatuses } };
   const [items, total] = await Promise.all([
     Contest.find(filter).sort({ createdAt: -1 }).populate("players.userId", "name")
       .skip((page - 1) * limit).limit(limit),

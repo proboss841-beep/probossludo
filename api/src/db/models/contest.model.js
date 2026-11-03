@@ -53,11 +53,14 @@ const contestSchema = new mongoose.Schema(
       autoRefundAt: { type: Date },
     },
 
-    // Admin-created dummy (social-proof) battle — shown in the open lobby,
-    // never playable. Clicking one just removes it for that player.
+    // Admin-created dummy (social-proof) battle — shown in the open lobby or
+    // the running list, never playable. Clicking one just removes it for that
+    // player. `dummyOpponentName` is the second (fake) player for the
+    // `running` flavour; status distinguishes the two flavours (open|running).
     isDummy: { type: Boolean, default: false },
     dummyName: { type: String, trim: true, maxlength: 40 },
     dummyMobile: { type: String, trim: true, maxlength: 15 },
+    dummyOpponentName: { type: String, trim: true, maxlength: 40 },
 
     entryHoldReleased: { type: Boolean, default: false },
     expiresAt: { type: Date },

@@ -101,11 +101,13 @@ export const adminSettingsSchema = z.object({
   withdrawalNote: z.string().trim().max(300).optional(),
 });
 
-/** admin dummy (social-proof) battle */
+/** admin dummy (social-proof) battle — open lobby or running list */
 export const adminDummySchema = z.object({
   stake: stakeSchema,
   name: z.string().trim().min(2, "Enter a name").max(40).optional(),
   mobile: z.string().trim().max(15).optional(),
+  kind: z.enum(["open", "running"]).default("open"),
+  opponentName: z.string().trim().min(2, "Enter an opponent name").max(40).optional(),
 });
 
 
