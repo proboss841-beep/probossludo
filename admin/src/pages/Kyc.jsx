@@ -22,6 +22,8 @@ export default function Kyc() {
   const [sp] = useSearchParams();
   const status = FILTERS.some((f) => f.value === sp.get("status")) ? sp.get("status") : "all";
   const [page, setPage] = useState(1);
+  const [q, setQ] = useState("");
+  const [search, setSearch] = useState("");
   const [review, setReview] = useState(null); // { row, action }
   const [note, setNote] = useState("");
   const [preview, setPreview] = useState(null); // { title, fileKey } — full-size doc viewer
@@ -29,8 +31,8 @@ export default function Kyc() {
   useEffect(() => { setPage(1); }, [status]);
 
   const kyc = useQuery({
-    queryKey: ["kyc", page, status],
-    queryFn: () => api(`/admin/kyc?page=${page}&limit=${LIMIT}&status=${status}`),
+    queryKey: ["kyc", page, status, search],
+    queryFn: () => api(`/admin/kyc?page=${page}&limit=${LIMIT}&status=${status}${search ? `&q=${encodeURIComponent(search)}` : ""}`),
     keepPreviousData: true,
   });
 
@@ -49,26 +51,43 @@ export default function Kyc() {
 
   const items = kyc.data?.items || [];
 
+  function submitSearch(e) {
+    e.preventDefault();
+    setPage(1);
+    setSearch(q.trim());
+  }
+
   return (
     <div>
       <PageHeading
         title="KYC verification"
         subtitle={`${kyc.data?.total ?? 0} submissions`}
         action={
-          <div className="flex flex-wrap gap-1 rounded-xl border border-[#f0c2d8] bg-white p-1">
-            {FILTERS.map((f) => (
-              <Link key={f.value} to={`/kyc?status=${f.value}`}>
-                <span
-                  className={`block rounded-lg px-3 py-1.5 text-xs font-bold transition-colors ${
-                    status === f.value
-                      ? "bg-gradient-to-br from-[#ec4899] to-[#db2777] text-white"
-                      : "text-[#a56a83] hover:text-[#2a1520]"
-                  }`}
-                >
-                  {f.label}
-                </span>
-              </Link>
-            ))}
+          <div className="flex flex-col items-end gap-2">
+            <div className="flex flex-wrap gap-1 rounded-xl border border-[#f0c2d8] bg-white p-1">
+              {FILTERS.map((f) => (
+                <Link key={f.value} to={`/kyc?status=${f.value}`}>
+                  <span
+                    className={`block rounded-lg px-3 py-1.5 text-xs font-bold transition-colors ${
+                      status === f.value
+                        ? "bg-gradient-to-br from-[#ec4899] to-[#db2777] text-white"
+                        : "text-[#a56a83] hover:text-[#2a1520]"
+                    }`}
+                  >
+                    {f.label}
+                  </span>
+                </Link>
+              ))}
+            </div>
+            <form onSubmit={submitSearch} className="flex items-end gap-2">
+              <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name or phone…" className="!w-56" />
+              <Button type="submit">Search</Button>
+              {search && (
+                <Button type="button" variant="subtle" onClick={() => { setQ(""); setSearch(""); setPage(1); }}>
+                  Clear
+                </Button>
+              )}
+            </form>
           </div>
         }
       />

@@ -27,13 +27,15 @@ export default function Deposits() {
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState("pending");
   const [method, setMethod] = useState("");
+  const [q, setQ] = useState("");
+  const [search, setSearch] = useState("");
   const [review, setReview] = useState(null); // { row, action }
   const [note, setNote] = useState("");
 
   const deposits = useQuery({
-    queryKey: ["deposits", page, status, method],
+    queryKey: ["deposits", page, status, method, search],
     queryFn: () =>
-      api(`/admin/deposits?page=${page}&limit=${LIMIT}${status ? `&status=${status}` : ""}${method ? `&method=${method}` : ""}`),
+      api(`/admin/deposits?page=${page}&limit=${LIMIT}${status ? `&status=${status}` : ""}${method ? `&method=${method}` : ""}${search ? `&q=${encodeURIComponent(search)}` : ""}`),
     keepPreviousData: true,
   });
 
@@ -52,6 +54,12 @@ export default function Deposits() {
 
   const items = deposits.data?.items || [];
 
+  function submitSearch(e) {
+    e.preventDefault();
+    setPage(1);
+    setSearch(q.trim());
+  }
+
   return (
     <div>
       <PageHeading
@@ -59,6 +67,15 @@ export default function Deposits() {
         subtitle={`${deposits.data?.total ?? 0} deposit claims`}
         action={
           <div className="flex flex-col items-end gap-2">
+            <form onSubmit={submitSearch} className="flex items-end gap-2">
+              <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name or phone…" className="!w-56" />
+              <Button type="submit">Search</Button>
+              {search && (
+                <Button type="button" variant="subtle" onClick={() => { setQ(""); setSearch(""); setPage(1); }}>
+                  Clear
+                </Button>
+              )}
+            </form>
             <div className="flex gap-1 rounded-xl border border-[#f0c2d8] bg-white p-1">
               {FILTERS.map((f) => (
                 <button

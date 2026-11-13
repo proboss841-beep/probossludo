@@ -19,12 +19,14 @@ export default function Withdrawals() {
   const { toast } = useToast();
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState("requested");
+  const [q, setQ] = useState("");
+  const [search, setSearch] = useState("");
   const [review, setReview] = useState(null); // { row, action }
   const [note, setNote] = useState("");
 
   const withdrawals = useQuery({
-    queryKey: ["withdrawals", page, status],
-    queryFn: () => api(`/admin/withdrawals?page=${page}&limit=${LIMIT}${status ? `&status=${status}` : ""}`),
+    queryKey: ["withdrawals", page, status, search],
+    queryFn: () => api(`/admin/withdrawals?page=${page}&limit=${LIMIT}${status ? `&status=${status}` : ""}${search ? `&q=${encodeURIComponent(search)}` : ""}`),
     keepPreviousData: true,
   });
 
@@ -44,26 +46,43 @@ export default function Withdrawals() {
   const items = withdrawals.data?.items || [];
   const needsRef = review?.action === "approve";
 
+  function submitSearch(e) {
+    e.preventDefault();
+    setPage(1);
+    setSearch(q.trim());
+  }
+
   return (
     <div>
       <PageHeading
         title="Withdrawals"
         subtitle={`${withdrawals.data?.total ?? 0} payout requests`}
         action={
-          <div className="flex gap-1 rounded-xl border border-[#f0c2d8] bg-white p-1">
-            {FILTERS.map((f) => (
-              <button
-                key={f.value}
-                onClick={() => { setStatus(f.value); setPage(1); }}
-                className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-colors ${
-                  status === f.value
-                    ? "bg-gradient-to-br from-[#ec4899] to-[#db2777] text-white"
-                    : "text-[#a56a83] hover:text-[#2a1520]"
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
+          <div className="flex flex-col items-end gap-2">
+            <div className="flex gap-1 rounded-xl border border-[#f0c2d8] bg-white p-1">
+              {FILTERS.map((f) => (
+                <button
+                  key={f.value}
+                  onClick={() => { setStatus(f.value); setPage(1); }}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-colors ${
+                    status === f.value
+                      ? "bg-gradient-to-br from-[#ec4899] to-[#db2777] text-white"
+                      : "text-[#a56a83] hover:text-[#2a1520]"
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+            <form onSubmit={submitSearch} className="flex items-end gap-2">
+              <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name or phone…" className="!w-56" />
+              <Button type="submit">Search</Button>
+              {search && (
+                <Button type="button" variant="subtle" onClick={() => { setQ(""); setSearch(""); setPage(1); }}>
+                  Clear
+                </Button>
+              )}
+            </form>
           </div>
         }
       />

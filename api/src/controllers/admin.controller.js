@@ -26,6 +26,20 @@ import { log } from "../config/logger.js";
 
 const l = log("admin.controller");
 
+function userSearchRegex(value) {
+  const q = String(value || "").trim();
+  return q ? new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i") : null;
+}
+
+async function matchingPlayerIds(regex) {
+  if (!regex) return null;
+  const users = await User.find({
+    role: "player",
+    $or: [{ name: regex }, { phone: regex }],
+  }).select("_id").lean();
+  return users.map((user) => user._id);
+}
+
 /** the shape every admin session hands to the panel (includes permissions) */
 function adminView(u) {
   return {
@@ -157,14 +171,13 @@ export async function dashboardStats(req, res) {
 
 export async function listUsers(req, res) {
   const { page, limit } = validate(paginationSchema, req.query);
-  const q = String(req.query.q || "").trim();
   const filter = { role: "player" };
   // all | active | banned (blocked)
   const status = String(req.query.status || "");
   if (status === "active" || status === "banned") filter.status = status;
-  if (q) {
-    const rx = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
-    filter.$or = [{ name: rx }, { phone: rx }];
+  const regex = userSearchRegex(req.query.q);
+  if (regex) {
+    filter.$or = [{ name: regex }, { phone: regex }];
   }
   const [items, total] = await Promise.all([
     User.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).select("+phone").lean(),
@@ -252,6 +265,8 @@ export async function listKyc(req, res) {
   const filter = { role: "player" };
   if (status === "approved") filter["kyc.status"] = "verified";
   else if (status && status !== "all") filter["kyc.status"] = status;
+  const regex = userSearchRegex(req.query.q);
+  if (regex) filter.$or = [{ name: regex }, { phone: regex }];
   const [items, total] = await Promise.all([
     User.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).select("+phone").lean(),
     User.countDocuments(filter),
@@ -297,6 +312,8 @@ export async function listDeposits(req, res) {
   const filter = {};
   if (req.query.status) filter.status = req.query.status;
   if (["manual", "gateway"].includes(req.query.method)) filter.method = req.query.method;
+  const regex = userSearchRegex(req.query.q);
+  if (regex) filter.userId = { $in: await matchingPlayerIds(regex) };
   const [items, total] = await Promise.all([
     DepositRequest.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit)
       .populate("userId", "name phone").lean(),
@@ -373,6 +390,8 @@ export async function reviewDeposit(req, res) {
 export async function listWithdrawals(req, res) {
   const { page, limit } = validate(paginationSchema, req.query);
   const filter = req.query.status ? { status: req.query.status } : {};
+  const regex = userSearchRegex(req.query.q);
+  if (regex) filter.userId = { $in: await matchingPlayerIds(regex) };
   const [items, total] = await Promise.all([
     WithdrawalRequest.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit)
       .populate("userId", "name phone").lean(),
@@ -460,6 +479,8 @@ export async function listContests(req, res) {
   }
   if (CONTEST_GROUPS[group]) filter.status = { $in: CONTEST_GROUPS[group] };
   else if (req.query.status) filter.status = req.query.status;
+  const regex = userSearchRegex(req.query.q);
+  if (regex) filter["players.userId"] = { $in: await matchingPlayerIds(regex) };
   // dummy (social-proof) battles have their own admin screen — keep them out
   // of the real battle ledger so they can never be settled/refunded by mistake.
   filter.isDummy = { $ne: true };

@@ -31,6 +31,8 @@ export default function Matches() {
   const tabs = TABS.filter((t) => !t.perm || canSee(authState().user, t.perm));
   const tab = TABS.some((t) => t.value === sp.get("tab")) ? sp.get("tab") : "running";
   const [page, setPage] = useState(1);
+  const [q, setQ] = useState("");
+  const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState(null);
   const [winner, setWinner] = useState("");
   const [note, setNote] = useState("");
@@ -39,8 +41,8 @@ export default function Matches() {
   useEffect(() => { setPage(1); }, [tab]);
 
   const contests = useQuery({
-    queryKey: ["contests", page, tab],
-    queryFn: () => api(`/admin/contests?page=${page}&limit=${LIMIT}&group=${tab}`),
+    queryKey: ["contests", page, tab, search],
+    queryFn: () => api(`/admin/contests?page=${page}&limit=${LIMIT}&group=${tab}${search ? `&q=${encodeURIComponent(search)}` : ""}`),
     keepPreviousData: true,
   });
 
@@ -93,29 +95,46 @@ export default function Matches() {
     setNote("");
   }
 
+  function submitSearch(e) {
+    e.preventDefault();
+    setPage(1);
+    setSearch(q.trim());
+  }
+
   return (
     <div>
       <PageHeading
         title="Matches"
         subtitle={`${contests.data?.total ?? 0} battles`}
         action={
-          <div className="flex max-w-full flex-wrap gap-1 rounded-xl border border-[#f0c2d8] bg-white p-1">
-            {tabs.map((t) => (
-              <Link key={t.value} to={`/matches?tab=${t.value}`}>
-                <span
-                  className={`block rounded-lg px-2.5 py-1.5 text-xs font-bold transition-colors ${
-                    tab === t.value
-                      ? "bg-gradient-to-br from-[#ec4899] to-[#db2777] text-white"
-                      : "text-[#a56a83] hover:text-[#2a1520]"
-                  }`}
-                >
-                  {t.label}
-                  {contests.data?.counts?.[t.countKey] ? (
-                    <span className="ml-1 opacity-80">({contests.data.counts[t.countKey]})</span>
-                  ) : null}
-                </span>
-              </Link>
-            ))}
+          <div className="flex flex-col items-end gap-2">
+            <div className="flex max-w-full flex-wrap gap-1 rounded-xl border border-[#f0c2d8] bg-white p-1">
+              {tabs.map((t) => (
+                <Link key={t.value} to={`/matches?tab=${t.value}`}>
+                  <span
+                    className={`block rounded-lg px-2.5 py-1.5 text-xs font-bold transition-colors ${
+                      tab === t.value
+                        ? "bg-gradient-to-br from-[#ec4899] to-[#db2777] text-white"
+                        : "text-[#a56a83] hover:text-[#2a1520]"
+                    }`}
+                  >
+                    {t.label}
+                    {contests.data?.counts?.[t.countKey] ? (
+                      <span className="ml-1 opacity-80">({contests.data.counts[t.countKey]})</span>
+                    ) : null}
+                  </span>
+                </Link>
+              ))}
+            </div>
+            <form onSubmit={submitSearch} className="flex items-end gap-2">
+              <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name or phone…" className="!w-56" />
+              <Button type="submit">Search</Button>
+              {search && (
+                <Button type="button" variant="subtle" onClick={() => { setQ(""); setSearch(""); setPage(1); }}>
+                  Clear
+                </Button>
+              )}
+            </form>
           </div>
         }
       />
