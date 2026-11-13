@@ -52,7 +52,6 @@ export default function Wallet() {
   const profile = useQuery({ queryKey: ["profile"], queryFn: () => api("/user/profile") });
   const details = useQuery({ queryKey: ["deposit-details"], queryFn: () => api("/payments/deposit/details") });
   const history = useQuery({ queryKey: ["wallet", "history"], queryFn: () => api("/wallet/history?limit=30") });
-  const myDeposits = useQuery({ queryKey: ["deposits", "mine"], queryFn: () => api("/payments/deposits?limit=10") });
   // withdrawal master switch + note set by the admin (withdraw ON/OFF)
   const publicSettings = useQuery({
     queryKey: ["settings", "public"],
@@ -78,7 +77,6 @@ export default function Wallet() {
     const next = new URLSearchParams(searchParams);
     next.delete("deposit");
     setSearchParams(next, { replace: true });
-    qc.invalidateQueries({ queryKey: ["deposits", "mine"] });
     qc.invalidateQueries({ queryKey: ["wallet"] });
     qc.invalidateQueries({ queryKey: ["wallet", "history"] });
   }
@@ -267,7 +265,7 @@ export default function Wallet() {
                     key={preset}
                     type="button"
                     onClick={() => setAmount(String(preset))}
-                    className="flex-1 rounded-xl border border-gray-200 bg-gray-50 py-1.5 text-xs font-bold text-slate-700 transition-all hover:border-brand-500/50 active:scale-95"
+                    className="flex-1 rounded-xl border border-sky-200 bg-sky-50 py-1.5 text-xs font-bold text-sky-700 transition-all hover:border-sky-300 hover:bg-sky-100 active:scale-95"
                   >
                     +₹{preset}
                   </button>
@@ -330,39 +328,6 @@ export default function Wallet() {
                 </div>
               )}
 
-              {myDeposits.data?.items?.length > 0 && (
-                <div className="space-y-1 border-t border-gray-100 pt-3">
-                  <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Recent deposits</p>
-                  <ul className="divide-y divide-gray-100">
-                    {myDeposits.data.items.map((d) => (
-                      <li key={d.id}>
-                        <button
-                          type="button"
-                          onClick={() => d.method === "gateway" && openDepositCard(d.id)}
-                          className={`flex w-full items-center justify-between gap-2 py-2 text-left ${
-                            d.method === "gateway" ? "cursor-pointer" : "cursor-default"
-                          }`}
-                        >
-                          <div className="min-w-0">
-                            <p className="text-sm font-bold text-slate-700">{formatPaise(d.amountPaise)}</p>
-                            <p className="text-[11px] text-slate-400">
-                              {d.method === "gateway" ? "Instant UPI" : "UPI transfer"} ·{" "}
-                              {new Date(d.createdAt).toLocaleString()}
-                            </p>
-                            {d.gatewayNote && (
-                              <p className="text-[11px] font-semibold text-amber-700">{d.gatewayNote}</p>
-                            )}
-                            {d.rejectReason && !d.gatewayNote && (
-                              <p className="text-[11px] text-slate-400">{d.rejectReason}</p>
-                            )}
-                          </div>
-                          <Badge status={d.status} />
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
             </div>
           </Panel>
         </TabsPanel>
@@ -395,20 +360,30 @@ export default function Wallet() {
                   <span className="text-2xl">🎯</span>
                   <p className="mt-1 text-sm font-black text-amber-800">Play your first battle to unlock withdrawals</p>
                   <p className="mt-1 text-xs font-semibold text-amber-700">
-                    Your deposit is safe in your wallet. Finished battles make your balance withdrawable — head to the
-                    Play tab and join a battle now.
+                    Deposited funds unlock as you play matches. Head to the Play tab and finish battles to make more
+                    of your balance withdrawable.
                   </p>
                 </div>
               </div>
             ) : (
               <div className="space-y-3">
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-center">
+                  <p className="text-sm font-black text-amber-800">
+                    Withdrawable now: {formatPaise(wallet.data?.withdrawablePaise ?? 0)}
+                  </p>
+                  {wallet.data?.depositLockedPaise > 0 && (
+                    <p className="mt-1 text-xs font-semibold text-amber-700">
+                      {formatPaise(wallet.data.depositLockedPaise)} of deposited funds unlocks as you play matches.
+                    </p>
+                  )}
+                </div>
                 <Input
                   label="Amount (₹)"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   placeholder="300"
                   inputMode="decimal"
-                  hint="Minimum withdrawal ₹300"
+                  hint={`Minimum withdrawal ₹300 · Maximum now ${formatPaise(wallet.data?.withdrawablePaise ?? 0)}`}
                 />
                 <Input
                   label="Your UPI ID"

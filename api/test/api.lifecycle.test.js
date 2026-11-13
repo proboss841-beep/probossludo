@@ -294,7 +294,7 @@ test("referral: 2% of the referred winner's stake, then redeem to wallet", async
   assert.equal(rec.referralDrift, 0);
 });
 
-test("withdrawal: kyc gate -> hold -> admin pay -> ledger drift 0", async () => {
+test("withdrawal: deposit play-through gate -> match unlock -> KYC -> payout", async () => {
   const Cuser = (await import("../src/db/models/user.model.js")).User;
   const cDoc = await Cuser.findOne({ phone: "9999000003" });
   await depositAndApprove(tokens.C, 500000, "UTRC000002"); // ₹5000 gateway minimum
@@ -313,6 +313,46 @@ test("withdrawal: kyc gate -> hold -> admin pay -> ledger drift 0", async () => 
     userId: ids.C, action: "approve",
   });
   assert.equal(kycOk.status, 200, JSON.stringify(kycOk.body));
+
+  const lockedWallet = await request(app).get("/api/wallet").set("Authorization", `Bearer ${tokens.C}`);
+  assert.equal(lockedWallet.status, 200, JSON.stringify(lockedWallet.body));
+  assert.equal(lockedWallet.body.depositLockedPaise, 995000);
+  assert.equal(lockedWallet.body.withdrawablePaise, 0);
+
+  const lockedWithdrawal = await request(app).post("/api/payments/withdraw")
+    .set("Authorization", `Bearer ${tokens.C}`)
+    .send({ amountPaise: 100000, upiId: "demo@upi" });
+  assert.equal(lockedWithdrawal.status, 403, JSON.stringify(lockedWithdrawal.body));
+
+  const D = await loginPlayer("9999000004");
+  await depositAndApprove(D.token, 500000, "UTRD000001");
+  const battle = await request(app).post("/api/contests")
+    .set("Authorization", `Bearer ${tokens.C}`)
+    .send({ stake: 500000 });
+  assert.equal(battle.status, 201, JSON.stringify(battle.body));
+  const contestId = battle.body.contest.id;
+  const joined = await request(app).post(`/api/contests/${contestId}/join`)
+    .set("Authorization", `Bearer ${D.token}`);
+  assert.equal(joined.status, 200, JSON.stringify(joined.body));
+  const started = await request(app).post(`/api/contests/${contestId}/start`)
+    .set("Authorization", `Bearer ${tokens.C}`);
+  assert.equal(started.status, 200, JSON.stringify(started.body));
+  await request(app).post(`/api/contests/${contestId}/room`)
+    .set("Authorization", `Bearer ${tokens.C}`)
+    .send({ roomCode: "WITHDRAW1" });
+  const reportedWin = await request(app).post(`/api/contests/${contestId}/result`)
+    .set("Authorization", `Bearer ${tokens.C}`)
+    .send({ outcome: "won", screenshotKeys: [`${cDoc._id}/battle/proof.png`] });
+  assert.equal(reportedWin.status, 200, JSON.stringify(reportedWin.body));
+  const settled = await request(app).post(`/api/contests/${contestId}/result`)
+    .set("Authorization", `Bearer ${D.token}`)
+    .send({ outcome: "lost" });
+  assert.equal(settled.body.contest.status, "approved");
+
+  const unlockedWallet = await request(app).get("/api/wallet").set("Authorization", `Bearer ${tokens.C}`);
+  assert.equal(unlockedWallet.status, 200, JSON.stringify(unlockedWallet.body));
+  assert.equal(unlockedWallet.body.depositLockedPaise, 495000);
+  assert.equal(unlockedWallet.body.withdrawablePaise, 950000);
 
   const w = await request(app).post("/api/payments/withdraw").set("Authorization", `Bearer ${tokens.C}`).send({ amountPaise: 100000, upiId: "demo@upi" });
   assert.equal(w.status, 201, JSON.stringify(w.body));

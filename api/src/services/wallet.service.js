@@ -21,10 +21,16 @@ import { ForbiddenError } from "../lib/shared/index.js";
 
 function viewOf(wallet) {
   if (!wallet) return null;
+  const availablePaise = wallet.totalPaise - wallet.heldPaise;
+  const depositedPaise = wallet.totals?.depositedPaise || 0;
+  const playedPaise = wallet.totals?.lostPaise || 0; // This counter tracks all completed entry fees.
+  const depositLockedPaise = Math.max(0, depositedPaise - playedPaise);
   return {
     totalPaise: wallet.totalPaise,
     heldPaise: wallet.heldPaise,
-    availablePaise: wallet.totalPaise - wallet.heldPaise,
+    availablePaise,
+    depositLockedPaise,
+    withdrawablePaise: Math.max(0, availablePaise - depositLockedPaise),
     referralPaise: wallet.referralPaise || 0,
     totals: wallet.totals,
     currency: wallet.currency,
@@ -152,6 +158,14 @@ export async function creditPrize({ userId, contestId, amountPaise, settledBy = 
 /** Withdrawals: hold on request, then pay (hold->gone) or refund (hold->available). */
 export async function holdWithdrawal({ userId, withdrawalId, amountPaise, session }) {
   const run = async (s) => {
+    const currentWallet = await getOrCreateWallet(userId, { session: s });
+    const { withdrawablePaise } = viewOf(currentWallet);
+    if (amountPaise > withdrawablePaise) {
+      throw new ForbiddenError(
+        "Withdrawal amount exceeds your withdrawable balance. Play more matches to unlock deposited funds or request a lower amount."
+      );
+    }
+
     const { wallet } = await applyLedger({
       session: s, userId, amount: 0, heldDelta: amountPaise, type: "withdrawal_hold",
       refType: "withdrawal", refId: withdrawalId, note: "Withdrawal requested",
