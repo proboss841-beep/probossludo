@@ -218,7 +218,8 @@ export default function Users() {
             </div>
 
             <div className="grid grid-cols-2 gap-2.5">
-              <DetailRow label="Wallet balance" paise={detail.data?.wallet?.availablePaise} />
+              <DetailRow label="Total wallet balance" paise={detail.data?.wallet?.totalPaise} />
+              <DetailRow label="Available balance" paise={detail.data?.wallet?.availablePaise} />
               <DetailRow label="Winning wallet" paise={detail.data?.wallet?.wonPaise} />
               <DetailRow label="Total deposit" paise={detail.data?.totals?.depositedPaise} />
               <DetailRow label="Total withdrawal" paise={detail.data?.totals?.withdrawnPaise} />

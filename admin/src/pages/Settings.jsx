@@ -301,15 +301,31 @@ function AdjustForm({ kind, toast, qc }) {
 }
 
 function AdjustReport({ kind }) {
+  const [q, setQ] = useState("");
+  const [search, setSearch] = useState("");
   const report = useQuery({
-    queryKey: ["settings-report"],
-    queryFn: () => api("/admin/settings-report"),
+    queryKey: ["settings-report", search],
+    queryFn: () => api(`/admin/settings-report${search ? `?q=${encodeURIComponent(search)}` : ""}`),
   });
 
   const rows = report.data?.[kind] || [];
 
+  function submitSearch(e) {
+    e.preventDefault();
+    setSearch(q.trim());
+  }
+
   return (
     <Card>
+      <form onSubmit={submitSearch} className="mb-4 flex items-end gap-2">
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name or phone…" className="!w-56" />
+        <Button type="submit">Search</Button>
+        {search && (
+          <Button type="button" variant="subtle" onClick={() => { setQ(""); setSearch(""); }}>
+            Clear
+          </Button>
+        )}
+      </form>
       {report.isLoading ? (
         <Skeleton className="h-64 w-full" />
       ) : report.isError ? (

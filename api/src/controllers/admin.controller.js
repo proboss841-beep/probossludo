@@ -772,8 +772,11 @@ export async function addPenalty(req, res) {
 }
 
 /** GET /admin/settings-report — bonus + penalty history (newest first) */
-export async function settingsReport(_req, res) {
-  const rows = await LedgerEntry.find({ type: "adjustment" })
+export async function settingsReport(req, res) {
+  const filter = { type: "adjustment" };
+  const regex = userSearchRegex(req.query.q);
+  if (regex) filter.userId = { $in: await matchingPlayerIds(regex) };
+  const rows = await LedgerEntry.find(filter)
     .sort({ createdAt: -1 })
     .limit(400)
     .populate("actorId", "name")
